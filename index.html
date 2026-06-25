@@ -2,7 +2,6 @@
 
 <html lang="en" data-theme="dark">
 
-
 <head>
         <title>Automation Webpage</title>
         <style>
@@ -79,37 +78,72 @@
             .global-footer {
                 margin-top: auto;
                 width: 100%;
-                height: 50px;
+                min-height: 60px;
                 background-color: var(--card-bg);
                 border-top: 1px solid var(--border-line);
 
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
-                padding: 0 25px;
+                padding: 10px 25px;
                 box-sizing: border-box;
+                transition: background-color 0.4s ease border-color 0.4s ease;
+            }
+
+            .footer-left-logo {
+                flex: 1;
+                display: flex;
+                justify-content: flex-start;
             }
 
             .footer-logo-img {
-                height: 30px;
-                width:auto;
-                display:block;
+                height: 40px;
+                max-width: 100%;
+                width: auto;
+                display: block;
+                object-fit: contain;
             }
 
             .footer-center-copyright {
+                flex: 0 1 auto;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 6px;
+            }
+
+            .footer-center-copyright > div{
+                display: flex;
+                align-items: center;
                 font-size: 11px;
                 color: #64748b;
             }
 
             .footer-right-links {
+                flex: 1;
                 display: flex;
+                justify-content: flex-end;
                 gap: 15px;
             }
 
-            .footer-link {
+            .separator, .bullet-separator {
+                color: var(--border-line);
+                padding: 0 8px;
+            }
+
+            .bullet-separator {
+                font-size: 14px;
+                font-weight: bold;
+                line-height: 0;
+                position: relative;
+                top: -2px;
+            }
+
+            
+
+            .footer-legal-link {
                 color: var(--text-blue);
                 text-decoration: none;
-                font-size: 12px;
                 font-weight: 600;
             }
 
@@ -133,7 +167,43 @@
                 width: auto;
             }
 
+            .startBtnDesign {
+                display: flex;
+                justify-content: center;
+                margin-top: 40px;
+                padding-top: 20px;
+                border-top: 1px solid var(--border-line);
+
+            }
+
+            #startBtn {
+                display: inline-flex;
+                justify-content: center;
+                align-items: center;
+                border: none;
+                padding: 18px 55px;
+                font-size: 18px;
+                font-weight: 700;
+                letter-spacing: 2px;
+                border-radius: 50px;
+                cursor: pointer;
+                background: linear-gradient(135deg, #0ea5a9, #0284c7);
+                color: #ffffff;
+                transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            }
+
+            #headerLogoBtn {
+                color: var(--text-blue);
+                cursor: pointer;
+                transition: opacity 0.2s ease;
+            }
+
             .side-drawer {
+
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+
                 position: fixed;
                 top: 0;
                 right: -300px;
@@ -141,7 +211,7 @@
                 height: 100%;
                 background-color: var(--card-bg);
                 border-left: 2px solid var(--border-line);
-                padding: 20px;
+                padding: 40px 24px;
                 box-sizing: border-box;
                 transition: right 0.4s ease;
                 z-index: 1000;
@@ -152,7 +222,12 @@
             }
             .panel-link {
                 background-color: var(--border-line);
+                color: var(--text-main);
                 margin-bottom: 12px;
+                width: 50%;
+                cursor: pointer;
+                text-align: center;
+                padding: 12px;
             }
         </style>
 </head>
@@ -175,14 +250,14 @@
             <p style="text-align: center; color: green; font-size: 20px;">System Status: Active | Connected to Secure Server</p>
 
             <div>
-                <h2 style="text-align: center; margin-bottom: 30px; font-size: 20px; color: #0284c7;">1.Upload Internal Excel</h2>
+                <h2 style="text-align: left; margin-bottom: 30px; font-size: 20px; color: #0284c7;">1.Upload Internal Excel</h2>
                 <p style="text-align: left; font-size: 20px; color: green;">Press "START" and click Upload Workspace, upload your file by typing in your file name.</p>
             </div>
 
             <div>
                 <h2 style="text-align: left; margin-bottom: 30px; font-size: 20px; color:#0284c7;">2.Launch Live SFC Scraping</h2>
-                <p style="text-align: left; font-size: 20px; color: #0284c7;">
-                    prepare your internal workspace file for direct data crossing examination. Once you select 
+                <p style="text-align: left; font-size: 20px; color: green;">
+                    Prepare your internal workspace file for direct data crossing examination. Once you select 
                     your file and run the audit, the system automatically triggers a live, secure background
                     connection to official HKSAR GOV SFC Website, pulling down authorized regulatory compliance data in real-time.
                 </p>
@@ -200,6 +275,11 @@
                 <p style="text-align: left; margin-left:30px;">🔴Failed, please check the mismatched data.</p>
             </div>
 
+            <div class="startBtnDesign">
+                <button id="startBtn" type="button" onclick="showCard('cardProduct')">START</button>
+            </div>
+
+
         </div>
 
         <div id="cardProduct" class="dashboard-card" style="display: none;">
@@ -208,12 +288,12 @@
                 <h2 style="text-align: left;margin-bottom: 20px; color: green; font-size: 22px;">Step 1: Data Intake</h2>
 
                 <div>
-                    <label style="color: var(--text-blue); font-weight: 600px;">Operator Staff Name</label>;
+                    <label style="color: var(--text-blue); font-weight: 600;">Operator Name</label>
                     <input type="text" id="StaffName" placeholder="Enter your name">
                 </div>
 
                 <div>
-                    <label style="color: var(--text-blue);font-weight: 600px;">Upload your file</label>
+                    <label style="color: var(--text-blue);font-weight: 600;">Upload your file</label>
                     <input type="file" id="FileName" placeholder="Only accept .xlsx" accept=".xlsx" style="color: var(--text-main)">
                 </div>
 
@@ -228,25 +308,25 @@
                 <h2 style="color:#0284c7; margin-bottom: 20px; font-size: 20px;">Step 2: Review and Confirmation</h2>
                 <p>Please check if following info is correct.</p>
 
-                <strong>Operator Identity: </strong><span id="typedName">Proceeding...</span>
-                <strong>File Uploaded: </strong><span id="uploadedFile">Proceeding...</span>
+                <p><strong>Operator Identity: </strong><span id="typedName">Proceeding...</span></p>
+                <p><strong>File Uploaded: </strong><span id="uploadedFile">Proceeding...</span></p>
 
-                <button id="launchAutomationBtn" type="button" style="margin-top: 20px; color: darkseagreen; font-weight: 50px; cursor: pointer;">
+                <button id="launchAutomationBtn" type="button" style="margin-top: 20px; color: darkseagreen; font-weight: bold; cursor: pointer;">
                     Launch Automation
                 </button>
 
             </div>
 
             <div id="prodStep3" style="display: none">
-                <h2 margin-bottom: 30px; style="color:#38bdf8; font-weight: 50px;">Step 3: Receipt & Follow-up</h2>
+                <h2 style="color:#38bdf8; font-weight: bold; margin-bottom: 30px;">Step 3: Receipt & Follow-up</h2>
 
                 <p><strong>Reference ID:</strong><span id="currentrefID"></span></p>
                 <p><strong>Time Stamp:</strong><span id="currenttimeStamp"></span></p>
                 <p><strong>File Name:</strong><span id="currentfileName"></span></p>
                 <p><strong>Staff Name:</strong><span id="currentstaffName"></span></p>
 
-                <button id="checkResultsBtn" type="button" style="color: blue; padding: 20px 20px; cursor:pointer;">
-                    Check Results
+                <button id="checkResultsBtn" type="button" onclick="showCard('cardHistory')" style="color: blue; padding: 20px 20px; cursor:pointer;">
+                    Check Results &rarr;
                 </button>
 
             </div>
@@ -261,12 +341,13 @@
 
 
     <header class="global-header">
-        <div class="header-logo">WM CUBE HK</div>
+        <div class="header-logo" id="headerLogoBtn" onclick="refresh()">WMCUBE HK</div>
         <div class="header-right">
             <button id="themeToggleBtn" class="theme-btn">Toggle Light Theme</button>
             <button id="menuBtn" class="menu-icon">CUBE</button>
         </div>
     </header>
+
 
     <footer class="global-footer">
         
@@ -275,12 +356,22 @@
         </div>
 
         <div class="footer-center-copyright">
-            <div>&copy; WMCubeHK 2026. All Rights Reserved.</div>
+            <div>
+                <span>&copy; WMCubeHK 2026. All Rights Reserved.</span>
+                <span class="separator">|</span>
+                <span><a href="tas.html">Terms & Service</a></span>
+            </div>
+
+            <div>
+                <span>Version 1.0.0</span>
+                <span class="bullet-separator">.</span>
+                <span>Environment: UI Prototype</span>
+            </div>
         </div>
 
         <div class="footer-right-links">
-            <a href="mailto:compliance-tech@wmcube.com" class="footer-link">Contact</a>
-            <a href="https://fintech-consult.com/fintech/wealth-management-cube#google_vignette" target="_blank" class="footer-link"> History </a>
+            <a href="https://mail.google.com/mail/?view=cm&fs=1&to=wilsonwong@wmcubehk.com&su=SFC%20Portal%20Support" target="_blank" class="footer-link">IT Support</a>
+            <a href="https://fintech-consult.com/fintech/wealth-management-cube#google_vignette" target="_blank" class="footer-link">About</a>
         </div>
     </footer>
 
@@ -294,13 +385,34 @@
         document.getElementById("sidePanel").classList.toggle("open");
     });
 
-    function showCard(targetCardId){
+    function showCard(cardId){
 
-        document.getElementById("cardIntro").style.display="none";
-        document.getElementById("cardProduct").style.display="none";
-        document.getElementById("cardHistory").style.display="none";
-        document.getElementById(targetCardId).style.display="block";
-        document.getElementById("sidePanel").classList.remove("open");
+        const cards=['cardIntro','cardProduct','cardHistory'];
+
+
+        cards.forEach(card=>{
+
+            const id=document.getElementById(card);
+            if (id){
+                if (card==cardId){
+                    id.style.display="block";
+                }
+                else {
+                    id.style.display="none";
+                }
+            }
+        })
+    }
+
+    function refresh(){
+
+        showCard("cardIntro");
+
+        const sidePanel=document.getElementById("sidePanel");
+        if (sidePanel && sidePanel.classList.contains("open")){
+            sidePanel.classList.remove("open");
+        }
+
 
     }
 
@@ -351,6 +463,17 @@
 
         document.getElementById("prodStep2").style.display="none";
         document.getElementById("prodStep3").style.display="block";
+    });
+
+    document.addEventListener("click", function(event){
+        const sidePanel=document.getElementById("sidePanel");
+        const menuBtn=document.getElementById("menuBtn");
+
+        if (sidePanel && menuBtn) {
+            if (!sidePanel.contains(event.target) && !menuBtn.contains(event.target)){
+                sidePanel.classList.remove("open");
+            }
+        }
     });
 
 </script>
