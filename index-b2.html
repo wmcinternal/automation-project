@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+
+<html lang="en" data-theme="dark">
+
+
+<head>
+        <title>Automation Webpage</title>
+        <style>
+
+            html[data-theme="dark"]{
+                --canvas-bg: #000000;
+                --card-bg: #0a0a0a;
+                --text-main:#ffffff;
+                --text-blue:#38bdf8;
+                --border-line:#1e293b;
+            }
+
+            html[data-theme="light"]{
+                --canvas-bg: #f8fafc;
+                --card-bg:#ffffff;
+                --text-main:#0f172a;
+                --text-blue:#0284c7;
+                --border-line:#e2e8f0;
+            }
+
+            body {
+                font-family: 'Segoe UI', Arial, sans-serif;
+                background-color: var(--canvas-bg);
+                color: var(--text-main);
+                margin:0;
+                padding: 100px 20px 20px 20px;
+
+                display: flex;
+                flex-direction: column;
+                
+                min-height: 100vh;
+                transition: background-color 0.4s ease, color 0.4s ease;
+            }
+            .dashboard-card {
+                background-color: var(--card-bg);
+                width: 100%;
+                max-width: 500px;
+                padding: 30px;
+                border-radius: 12px;
+                box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+                border: 1px solid var(--border-line);
+                margin: 0 auto;
+            }
+            .form-group {
+                margin-bottom: 20px;
+            }
+            label {
+                display: block;
+                font-size: 13px;
+                text-transform: uppercase;
+                margin-bottom: 8px;
+            }
+            input:focus {
+                outline: none;
+                border: 2px solid #38bdf8;
+                box-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+                transition: all 0.3s ease;
+            }
+            .checkbox-wrapper {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+            .checkbox-wrapper input {
+                width: 20px;
+                height: 20px;
+                cursor: pointer;
+            }
+            .checkbox-wrapper label {
+                margin-bottom: 0;
+                cursor: pointer;
+            }
+
+            .global-footer {
+                margin-top: auto;
+                width: 100%;
+                height: 50px;
+                background-color: var(--card-bg);
+                border-top: 1px solid var(--border-line);
+
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 0 25px;
+                box-sizing: border-box;
+            }
+
+            .footer-logo-img {
+                height: 30px;
+                width:auto;
+                display:block;
+            }
+
+            .footer-center-copyright {
+                font-size: 11px;
+                color: #64748b;
+            }
+
+            .footer-right-links {
+                display: flex;
+                gap: 15px;
+            }
+
+            .footer-link {
+                color: var(--text-blue);
+                text-decoration: none;
+                font-size: 12px;
+                font-weight: 600;
+            }
+
+            .global-header {
+                position: fixed; top:0; left:0; width: 100%; height: 60px;
+                background-color: var(--card-bg); border-bottom: 1px solid var(--border-line);
+                display: flex; justify-content: space-between; align-items: center;
+                padding: 0 25px; box-sizing: border-box; z-index: 999;
+            }
+            .header-logo { font-weight: 700; color: var(--text-blue);}
+            .header-right { display: flex; align-items: center; gap: 15px;}
+            .theme-btn {background: none; border: 1px solid var(--border-line); color: var(--text-main); padding: 5px 10px; cursor: pointer;}
+            
+            #menuBtn {
+                background: none;
+                border: none;
+                color: #38bdf8;
+                font-size: 20px;
+                font-weight: 700;
+                cursor: pointer;
+                width: auto;
+            }
+
+            .side-drawer {
+                position: fixed;
+                top: 0;
+                right: -300px;
+                width: 300px;
+                height: 100%;
+                background-color: var(--card-bg);
+                border-left: 2px solid var(--border-line);
+                padding: 20px;
+                box-sizing: border-box;
+                transition: right 0.4s ease;
+                z-index: 1000;
+            }
+
+            .side-drawer.open{
+                right: 0;
+            }
+            .panel-link {
+                background-color: var(--border-line);
+                margin-bottom: 12px;
+            }
+        </style>
+</head>
+
+<body>
+
+    <div id="sidePanel" class="side-drawer">
+        <h3>Navigation Hub</h3>
+        <button class="panel-link" onclick="showCard('cardIntro')">System Overview</button>
+        <button class="panel-link" onclick="showCard('cardProduct')">Upload Workspace</button>
+        <button class="panel-link" onclick="showCard('cardHistory')">Ledger Logs</button>
+    </div>
+
+    
+    <main style="width: 100%; display: flex; justify-content: center; padding-top: 20px;">
+        
+        <div id="cardIntro" class="dashboard-card" style="display: block;">
+
+            <h2 style="text-align: center; margin-bottom: 30px; font-size: 30px; color:#0284c7">SFC Compliance Automation Gateway</h2>
+            <p style="text-align: center; color: green; font-size: 20px;">System Status: Active | Connected to Secure Server</p>
+
+            <div>
+                <h2 style="text-align: center; margin-bottom: 30px; font-size: 20px; color: #0284c7;">1.Upload Internal Excel</h2>
+                <p style="text-align: left; font-size: 20px; color: green;">Press "START" and click Upload Workspace, upload your file by typing in your file name.</p>
+            </div>
+
+            <div>
+                <h2 style="text-align: left; margin-bottom: 30px; font-size: 20px; color:#0284c7;">2.Launch Live SFC Scraping</h2>
+                <p style="text-align: left; font-size: 20px; color: #0284c7;">
+                    prepare your internal workspace file for direct data crossing examination. Once you select 
+                    your file and run the audit, the system automatically triggers a live, secure background
+                    connection to official HKSAR GOV SFC Website, pulling down authorized regulatory compliance data in real-time.
+                </p>
+                <p>⚠️Strict Template Requirement: only .xlsx or .xls is allowed.</p>
+            </div>
+
+            <div>
+                <h2 style="text-align: left; margin-bottom: 30px; font-size: 20px; color:#0284c7;">3.Review Audit</h2>
+                <p style="text-align: left; font-size: 20px; color: green;">
+                    After processing completes, the portal generates a structural comparison log.
+                    The system evaluates your uploaded Excel columns side-by-side against the live 
+                    scraped government data points to instantly flag any human data-entry deviations.
+                </p>
+                <p style="text-align: left; margin-left:30px;">🟢All data matched.</p>
+                <p style="text-align: left; margin-left:30px;">🔴Failed, please check the mismatched data.</p>
+            </div>
+
+        </div>
+
+        <div id="cardProduct" class="dashboard-card" style="display: none;">
+            
+            <div id="prodStep1" style="display: block;">
+                <h2 style="text-align: left;margin-bottom: 20px; color: green; font-size: 22px;">Step 1: Data Intake</h2>
+
+                <div>
+                    <label style="color: var(--text-blue); font-weight: 600px;">Operator Staff Name</label>;
+                    <input type="text" id="StaffName" placeholder="Enter your name">
+                </div>
+
+                <div>
+                    <label style="color: var(--text-blue);font-weight: 600px;">Upload your file</label>
+                    <input type="file" id="FileName" placeholder="Only accept .xlsx" accept=".xlsx" style="color: var(--text-main)">
+                </div>
+
+                <div style="color:#64748b; margin-top: 30px; display: flex;">
+                    <button id="Step1nextbutton" type="button">
+                        Proceed to Verification &rarr;
+                    </button>
+                </div>
+            </div>
+
+            <div id="prodStep2" style="display: none;">
+                <h2 style="color:#0284c7; margin-bottom: 20px; font-size: 20px;">Step 2: Review and Confirmation</h2>
+                <p>Please check if following info is correct.</p>
+
+                <strong>Operator Identity: </strong><span id="typedName">Proceeding...</span>
+                <strong>File Uploaded: </strong><span id="uploadedFile">Proceeding...</span>
+
+                <button id="launchAutomationBtn" type="button" style="margin-top: 20px; color: darkseagreen; font-weight: 50px; cursor: pointer;">
+                    Launch Automation
+                </button>
+
+            </div>
+
+            <div id="prodStep3" style="display: none">
+                <h2 margin-bottom: 30px; style="color:#38bdf8; font-weight: 50px;">Step 3: Receipt & Follow-up</h2>
+
+                <p><strong>Reference ID:</strong><span id="currentrefID"></span></p>
+                <p><strong>Time Stamp:</strong><span id="currenttimeStamp"></span></p>
+                <p><strong>File Name:</strong><span id="currentfileName"></span></p>
+                <p><strong>Staff Name:</strong><span id="currentstaffName"></span></p>
+
+                <button id="checkResultsBtn" type="button" style="color: blue; padding: 20px 20px; cursor:pointer;">
+                    Check Results
+                </button>
+
+            </div>
+
+        </div>
+
+        <div id="cardHistory" class="dashboard-card" style="display: none;">
+            <h2>Service Terminal</h2>
+            <p>Backend execution status monitoring array will display here. </p>
+        </div>
+    </main> 
+
+
+    <header class="global-header">
+        <div class="header-logo">WM CUBE HK</div>
+        <div class="header-right">
+            <button id="themeToggleBtn" class="theme-btn">Toggle Light Theme</button>
+            <button id="menuBtn" class="menu-icon">CUBE</button>
+        </div>
+    </header>
+
+    <footer class="global-footer">
+        
+        <div class="footer-left-logo">
+            <img src="logo.png" alt="WM Cube HK Logo" class="footer-logo-img">
+        </div>
+
+        <div class="footer-center-copyright">
+            <div>&copy; WMCubeHK 2026. All Rights Reserved.</div>
+        </div>
+
+        <div class="footer-right-links">
+            <a href="mailto:compliance-tech@wmcube.com" class="footer-link">Contact</a>
+            <a href="https://fintech-consult.com/fintech/wealth-management-cube#google_vignette" target="_blank" class="footer-link"> History </a>
+        </div>
+    </footer>
+
+
+</body>
+
+<script>
+
+
+    document.getElementById("menuBtn").addEventListener("click", function(){
+        document.getElementById("sidePanel").classList.toggle("open");
+    });
+
+    function showCard(targetCardId){
+
+        document.getElementById("cardIntro").style.display="none";
+        document.getElementById("cardProduct").style.display="none";
+        document.getElementById("cardHistory").style.display="none";
+        document.getElementById(targetCardId).style.display="block";
+        document.getElementById("sidePanel").classList.remove("open");
+
+    }
+
+
+    document.getElementById("themeToggleBtn").addEventListener("click", function(){
+        const rootElement=document.documentElement;
+        const currentTheme=rootElement.getAttribute("data-theme");
+        if (currentTheme==="dark"){
+            rootElement.setAttribute("data-theme", "light");
+            document.getElementById("themeToggleBtn").textContent="Dark Theme";
+        }
+        else {
+            rootElement.setAttribute("data-theme", "dark");
+            document.getElementById("themeToggleBtn").textContent="Light";
+        }
+    });
+
+    document.getElementById("Step1nextbutton").addEventListener("click", function(){
+
+        document.getElementById("typedName").textContent=document.getElementById("StaffName").value.trim() || "Anonymous Auditor";
+        const fileNode=document.getElementById("FileName").files[0];
+        document.getElementById("uploadedFile").textContent=fileNode ? fileNode.name: "No File Selected";
+
+        document.getElementById("prodStep1").style.display="none";
+        document.getElementById("prodStep2").style.display="block";
+            
+    });
+
+    
+  
+
+    document.getElementById("launchAutomationBtn").addEventListener("click", function(){
+        const today=new Date();
+        const year=today.getFullYear();
+        const month=String(today.getMonth()+1).padStart(2,'0');
+        const day=String(today.getDate()).padStart(2,'0');
+
+        const formattedDate=year+month+day;
+        const randomSixDigit=Math.floor(100000+Math.random()*900000);
+        const customRefId="WMC-"+formattedDate+"-"+randomSixDigit;
+
+        const liveTimeStamp=today.toLocaleString();
+
+        document.getElementById("currentrefID").textContent=customRefId;
+        document.getElementById("currenttimeStamp").textContent=liveTimeStamp;
+        document.getElementById("currentfileName").textContent=document.getElementById("uploadedFile").textContent;
+        document.getElementById("currentstaffName").textContent=document.getElementById("typedName").textContent;
+
+        document.getElementById("prodStep2").style.display="none";
+        document.getElementById("prodStep3").style.display="block";
+    });
+
+</script>
+</html>
