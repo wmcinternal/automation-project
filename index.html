@@ -170,14 +170,44 @@
     <main style="width: 100%; display: flex; justify-content: center; padding-top: 20px;">
         
         <div id="cardIntro" class="dashboard-card" style="display: block;">
-            <h2>Our Vision</h2>
-            <p>Welcome to WMCubeHK Automation Portal</p>
+
+            <h2 style="text-align: center; margin-bottom: 30px; font-size: 30px; color:#0284c7">SFC Compliance Automation Gateway</h2>
+            <p style="text-align: center; color: green; font-size: 20px;">System Status: Active | Connected to Secure Server</p>
+
+            <div>
+                <h2 style="text-align: center; margin bottom: 30px; font-size: 20px; color: #0284c7;">1.Upload Internal Excel</h2>
+                <p style="text-align: left; font-size: 20px; color: green;">Press "START" and click Upload Workspace, upload your file by typing in your file name.</p>
+            </div>
+
+            <div>
+                <h2 style="text-align: left; margin-bottom: 30px; font-size: 20px; color:#0284c7;">2.Launch Live SFC Scraping</h2>
+                <p style="text-align: left; font-size: 20px; color: #0284c7;">
+                    prepare your internal workspace file for direct data crossing examination. Once you select 
+                    your file and run the audit, the system automatically triggers a live, secure background
+                    connection to official HKSAR GOV SFC Website, pulling down authorized regulatory compliance data in real-time.
+                </p>
+                <p>⚠️Strict Template Requirement: only .xlsx or .xls is allowed.</p>
+            </div>
+
+            <div>
+                <h2 style="text-align: left; margin-bottom: 30px; font-size: 20px; color:#0284c7;">3.Review Audit</h2>
+                <p style="text-align: left; font-size: 20px; color: green;">
+                    After processing completes, the portal generates a structural comparison log.
+                    The system evaluates your uploaded Excel columns side-by-side against the live 
+                    scraped government data points to instantly flag any human data-entry deviations.
+                </p>
+                <p style="text-align: left; margin-left:30px;">🟢All data matched.</p>
+                <p style="text-align: left; margin-left:30px;">🔴Failed, please check the mismatched data.</p>
+            </div>
+
         </div>
 
         <div id="cardProduct" class="dashboard-card" style="display: none;">
             <h2>Fund Details</h2>
         
             <div id="prodStep1">
+            
+                    
                 <div class="form-group">
                     <label>Proposed Fund Name</label>
                     <input type="text" id="fundName" placeholder="Enter formal legal name...">
