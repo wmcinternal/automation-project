@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+
+<html lang="en" data-theme="dark">
+
+
+<head>
+        <title>Automation Webpage</title>
+        <style>
+
+            html[data-theme="dark"]{
+                --canvas-bg: #000000;
+                --card-bg: #0a0a0a;
+                --text-main:#ffffff;
+                --text-blue:#38bdf8;
+                --border-line:#1e293b;
+            }
+
+            html[data-theme="light"]{
+                --canvas-bg: #f8fafc;
+                --card-bg:#ffffff;
+                --text-main:#0f172a;
+                --text-blue:#0284c7;
+                --border-line:#e2e8f0;
+            }
+
+            body {
+                font-family: 'Segoe UI', Arial, sans-serif;
+                background-color: var(--canvas-bg);
+                color: var(--text-main);
+                margin:0;
+                padding: 100px 20px 20px 20px;
+
+                display: flex;
+                flex-direction: column;
+                
+                min-height: 100vh;
+                transition: background-color 0.4s ease, color 0.4s ease;
+            }
+            .dashboard-card {
+                background-color: var(--card-bg);
+                width: 100%;
+                max-width: 500px;
+                padding: 30px;
+                border-radius: 12px;
+                box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+                border: 1px solid var(--border-line);
+                margin: 0 auto;
+            }
+            .form-group {
+                margin-bottom: 20px;
+            }
+            label {
+                display: block;
+                font-size: 13px;
+                text-transform: uppercase;
+                margin-bottom: 8px;
+            }
+            input:focus {
+                outline: none;
+                border: 2px solid #38bdf8;
+                box-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+                transition: all 0.3s ease;
+            }
+            .checkbox-wrapper {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+            .checkbox-wrapper input {
+                width: 20px;
+                height: 20px;
+                cursor: pointer;
+            }
+            .checkbox-wrapper label {
+                margin-bottom: 0;
+                cursor: pointer;
+            }
+
+            .global-footer {
+                margin-top: auto;
+                width: 100%;
+                height: 50px;
+                background-color: var(--card-bg);
+                border-top: 1px solid var(--border-line);
+
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 0 25px;
+                box-sizing: border-box;
+            }
+
+            .footer-logo-img {
+                height: 30px;
+                width:auto;
+                display:block;
+            }
+
+            .footer-center-copyright {
+                font-size: 11px;
+                color: #64748b;
+            }
+
+            .footer-right-links {
+                display: flex;
+                gap: 15px;
+            }
+
+            .footer-link {
+                color: var(--text-blue);
+                text-decoration: none;
+                font-size: 12px;
+                font-weight: 600;
+            }
+
+            .global-header {
+                position: fixed; top:0; left:0; width: 100%; height: 60px;
+                background-color: var(--card-bg); border-bottom: 1px solid var(--border-line);
+                display: flex; justify-content: space-between; align-items: center;
+                padding: 0 25px; box-sizing: border-box; z-index: 999;
+            }
+            .header-logo { font-weight: 700; color: var(--text-blue);}
+            .header-right { display: flex; align-items: center; gap: 15px;}
+            .theme-btn {background: none; border: 1px solid var(--border-line); color: var(--text-main); padding: 5px 10px; cursor: pointer;}
+            
+            #menuBtn {
+                background: none;
+                border: none;
+                color: #38bdf8;
+                font-size: 20px;
+                font-weight: 700;
+                cursor: pointer;
+                width: auto;
+            }
+
+            .side-drawer {
+                position: fixed;
+                top: 0;
+                right: -300px;
+                width: 300px;
+                height: 100%;
+                background-color: var(--card-bg);
+                border-left: 2px solid var(--border-line);
+                padding: 20px;
+                box-sizing: border-box;
+                transition: right 0.4s ease;
+                z-index: 1000;
+            }
+
+            .side-drawer.open{
+                right: 0;
+            }
+            .panel-link {
+                background-color: var(--border-line);
+                margin-bottom: 12px;
+            }
+        </style>
+</head>
+
+<body>
+
+    <div id="sidePanel" class="side-drawer">
+        <h3>Navigation Hub</h3>
+        <button class="panel-link" onclick="showCard('cardIntro')">System Overview</button>
+        <button class="panel-link" onclick="showCard('cardProduct')">Upload Workspace</button>
+        <button class="panel-link" onclick="showCard('cardHistory')">Ledger Logs</button>
+    </div>
+
+    
+    <main style="width: 100%; display: flex; justify-content: center; padding-top: 20px;">
+        
+        <div id="cardIntro" class="dashboard-card" style="display: block;">
+            <h2>Our Vision</h2>
+            <p>Welcome to WMCubeHK Automation Portal</p>
+        </div>
+
+        <div id="cardProduct" class="dashboard-card" style="display: none;">
+            <h2>Fund Details</h2>
+        
+            <div id="prodStep1">
+                <div class="form-group">
+                    <label>Proposed Fund Name</label>
+                    <input type="text" id="fundName" placeholder="Enter formal legal name...">
+                </div>
+                <button id="nextStepBtn" type="button" style="background-color: #38bdf8; color: #0f172a;"> Next Step &rarr;</button>
+            </div>
+
+            <div id="prodStep2" style="display: none;">
+                <div class="form-group checkbox-wrapper">
+                    <input type="checkbox" id="mrfStatus">
+                    <label for="mrfStatus">Flag as Mainland-HK MRF Product</label>
+                </div>
+
+                <div class="form-group" style="margin-top: 20px;">
+                    <label>Upload Compliance PDF Prospectus</label>
+                    <input type="file" id="pdfUpload" accept=".pdf" style="display: block; color: #f8fafc; cursor: pointer; margin-top: 8px;">
+                </div>
+
+                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button id="backStepBtn" type="button" style="background-color: #334155;">&larr; Back</button>
+                    <button id="executeBtn">Submit to Excel</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="cardHistory" class="dashboard-card" style="display: none;">
+            <h2>Service Terminal</h2>
+            <p>Backend execution status monitoring array will display here. </p>
+        </div>
+    </main> 
+
+
+    <header class="global-header">
+        <div class="header-logo">WM CUBE HK</div>
+        <div class="header-right">
+            <button id="themeToggleBtn" class="theme-btn">Toggle Light Theme</button>
+            <button id="menuBtn" class="menu-icon">CUBE</button>
+        </div>
+    </header>
+
+    <footer class="global-footer">
+        
+        <div class="footer-left-logo">
+            <img src="logo.png" alt="WM Cube HK Logo" class="footer-logo-img">
+        </div>
+
+        <div class="footer-center-copyright">
+            <div>&copy; WMCubeHK 2026. All Rights Reserved.</div>
+        </div>
+
+        <div class="footer-right-links">
+            <a href="mailto:compliance-tech@wmcube.com" class="footer-link">Contact</a>
+            <a href="https://fintech-consult.com/fintech/wealth-management-cube#google_vignette" target="_blank" class="footer-link"> History </a>
+        </div>
+    </footer>
+
+
+</body>
+
+<script>
+    document.getElementById("executeBtn").addEventListener("click", function(){
+       var name=document.getElementById("fundName").value.trim();
+       alert("Captured name: "+name);
+
+       var isMRF=document.getElementById("mrfStatus").checked;
+
+        if (isMRF===true){
+            alert("System Rule: Activating Cross-Border Regulatory Checks.");
+        }
+    });
+
+    document.getElementById("menuBtn").addEventListener("click", function(){
+        document.getElementById("sidePanel").classList.toggle("open");
+    });
+
+    function showCard(targetCardId){
+
+        document.getElementById("cardIntro").style.display="none";
+        document.getElementById("cardProduct").style.display="none";
+        document.getElementById("cardHistory").style.display="none";
+        document.getElementById(targetCardId).style.display="block";
+        document.getElementById("sidePanel").classList.remove("open");
+
+    }
+
+
+    document.getElementById("nextStepBtn").addEventListener("click", function(){
+        document.getElementById("prodStep1").style.display="none";
+        document.getElementById("prodStep2").style.display="block";
+    });
+
+    document.getElementById("backStepBtn").addEventListener("click", function(){
+        document.getElementById("prodStep2").style.display="none";
+        document.getElementById("prodStep1").style.display="block";
+            
+    });
+
+    function toggleGlobalTheme(){
+        const rootElement=document.documentElement;
+        const currentTheme=rootElement.getAttribute("data-theme");
+        if (currentTheme==="dark"){
+            rootElement.setAttribute("data-theme", "light");
+            document.getElementById("themeToggleBtn").textContent="Dark Theme";
+        }
+        else {
+            rootElement.setAttribute("data-theme", "dark");
+            document.getElementById("themeToggleBtn").textContent="Light Theme";
+
+        }
+    }
+    document.getElementById("themeToggleBtn").addEventListener("click", toggleGlobalTheme);
+    
+
+</script>
+</html>
