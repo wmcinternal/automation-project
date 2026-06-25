@@ -175,7 +175,7 @@
             <p style="text-align: center; color: green; font-size: 20px;">System Status: Active | Connected to Secure Server</p>
 
             <div>
-                <h2 style="text-align: center; margin bottom: 30px; font-size: 20px; color: #0284c7;">1.Upload Internal Excel</h2>
+                <h2 style="text-align: center; margin-bottom: 30px; font-size: 20px; color: #0284c7;">1.Upload Internal Excel</h2>
                 <p style="text-align: left; font-size: 20px; color: green;">Press "START" and click Upload Workspace, upload your file by typing in your file name.</p>
             </div>
 
@@ -203,34 +203,54 @@
         </div>
 
         <div id="cardProduct" class="dashboard-card" style="display: none;">
-            <h2>Fund Details</h2>
-        
-            <div id="prodStep1">
             
-                    
-                <div class="form-group">
-                    <label>Proposed Fund Name</label>
-                    <input type="text" id="fundName" placeholder="Enter formal legal name...">
+            <div id="prodStep1" style="display: block;">
+                <h2 style="text-align: left;margin-bottom: 20px; color: green; font-size: 22px;">Step 1: Data Intake</h2>
+
+                <div>
+                    <label style="color: var(--text-blue); font-weight: 600px;">Operator Staff Name</label>;
+                    <input type="text" id="StaffName" placeholder="Enter your name">
                 </div>
-                <button id="nextStepBtn" type="button" style="background-color: #38bdf8; color: #0f172a;"> Next Step &rarr;</button>
+
+                <div>
+                    <label style="color: var(--text-blue);font-weight: 600px;">Upload your file</label>
+                    <input type="file" id="FileName" placeholder="Only accept .xlsx" accept=".xlsx" style="color: var(--text-main)">
+                </div>
+
+                <div style="color:#64748b; margin-top: 30px; display: flex;">
+                    <button id="Step1nextbutton" type="button">
+                        Proceed to Verification &rarr;
+                    </button>
+                </div>
             </div>
 
             <div id="prodStep2" style="display: none;">
-                <div class="form-group checkbox-wrapper">
-                    <input type="checkbox" id="mrfStatus">
-                    <label for="mrfStatus">Flag as Mainland-HK MRF Product</label>
-                </div>
+                <h2 style="color:#0284c7; margin-bottom: 20px; font-size: 20px;">Step 2: Review and Confirmation</h2>
+                <p>Please check if following info is correct.</p>
 
-                <div class="form-group" style="margin-top: 20px;">
-                    <label>Upload Compliance PDF Prospectus</label>
-                    <input type="file" id="pdfUpload" accept=".pdf" style="display: block; color: #f8fafc; cursor: pointer; margin-top: 8px;">
-                </div>
+                <strong>Operator Identity: </strong><span id="typedName">Proceeding...</span>
+                <strong>File Uploaded: </strong><span id="uploadedFile">Proceeding...</span>
 
-                <div style="display: flex; gap: 10px; margin-top: 20px;">
-                    <button id="backStepBtn" type="button" style="background-color: #334155;">&larr; Back</button>
-                    <button id="executeBtn">Submit to Excel</button>
-                </div>
+                <button id="launchAutomationBtn" type="button" style="margin-top: 20px; color: darkseagreen; font-weight: 50px; cursor: pointer;">
+                    Launch Automation
+                </button>
+
             </div>
+
+            <div id="prodStep3" style="display: none">
+                <h2 margin-bottom: 30px; style="color:#38bdf8; font-weight: 50px;">Step 3: Receipt & Follow-up</h2>
+
+                <p><strong>Reference ID:</strong><span id="currentrefID"></span></p>
+                <p><strong>Time Stamp:</strong><span id="currenttimeStamp"></span></p>
+                <p><strong>File Name:</strong><span id="currentfileName"></span></p>
+                <p><strong>Staff Name:</strong><span id="currentstaffName"></span></p>
+
+                <button id="checkResultsBtn" type="button" style="color: blue; padding: 20px 20px; cursor:pointer;">
+                    Check Results
+                </button>
+
+            </div>
+
         </div>
 
         <div id="cardHistory" class="dashboard-card" style="display: none;">
@@ -251,7 +271,7 @@
     <footer class="global-footer">
         
         <div class="footer-left-logo">
-            <img src="logo.png" alt="WM Cube HK Logo" class="footer-logo-img">
+            <img src="logo.png.jpeg" alt="WM Cube HK Logo" class="footer-logo-img">
         </div>
 
         <div class="footer-center-copyright">
@@ -268,16 +288,7 @@
 </body>
 
 <script>
-    document.getElementById("executeBtn").addEventListener("click", function(){
-       var name=document.getElementById("fundName").value.trim();
-       alert("Captured name: "+name);
 
-       var isMRF=document.getElementById("mrfStatus").checked;
-
-        if (isMRF===true){
-            alert("System Rule: Activating Cross-Border Regulatory Checks.");
-        }
-    });
 
     document.getElementById("menuBtn").addEventListener("click", function(){
         document.getElementById("sidePanel").classList.toggle("open");
@@ -294,18 +305,7 @@
     }
 
 
-    document.getElementById("nextStepBtn").addEventListener("click", function(){
-        document.getElementById("prodStep1").style.display="none";
-        document.getElementById("prodStep2").style.display="block";
-    });
-
-    document.getElementById("backStepBtn").addEventListener("click", function(){
-        document.getElementById("prodStep2").style.display="none";
-        document.getElementById("prodStep1").style.display="block";
-            
-    });
-
-    function toggleGlobalTheme(){
+    document.getElementById("themeToggleBtn").addEventListener("click", function(){
         const rootElement=document.documentElement;
         const currentTheme=rootElement.getAttribute("data-theme");
         if (currentTheme==="dark"){
@@ -314,12 +314,44 @@
         }
         else {
             rootElement.setAttribute("data-theme", "dark");
-            document.getElementById("themeToggleBtn").textContent="Light Theme";
-
+            document.getElementById("themeToggleBtn").textContent="Light";
         }
-    }
-    document.getElementById("themeToggleBtn").addEventListener("click", toggleGlobalTheme);
+    });
+
+    document.getElementById("Step1nextbutton").addEventListener("click", function(){
+
+        document.getElementById("typedName").textContent=document.getElementById("StaffName").value.trim() || "Anonymous Auditor";
+        const fileNode=document.getElementById("FileName").files[0];
+        document.getElementById("uploadedFile").textContent=fileNode ? fileNode.name: "No File Selected";
+
+        document.getElementById("prodStep1").style.display="none";
+        document.getElementById("prodStep2").style.display="block";
+            
+    });
+
     
+  
+
+    document.getElementById("launchAutomationBtn").addEventListener("click", function(){
+        const today=new Date();
+        const year=today.getFullYear();
+        const month=String(today.getMonth()+1).padStart(2,'0');
+        const day=String(today.getDate()).padStart(2,'0');
+
+        const formattedDate=year+month+day;
+        const randomSixDigit=Math.floor(100000+Math.random()*900000);
+        const customRefId="WMC-"+formattedDate+"-"+randomSixDigit;
+
+        const liveTimeStamp=today.toLocaleString();
+
+        document.getElementById("currentrefID").textContent=customRefId;
+        document.getElementById("currenttimeStamp").textContent=liveTimeStamp;
+        document.getElementById("currentfileName").textContent=document.getElementById("uploadedFile").textContent;
+        document.getElementById("currentstaffName").textContent=document.getElementById("typedName").textContent;
+
+        document.getElementById("prodStep2").style.display="none";
+        document.getElementById("prodStep3").style.display="block";
+    });
 
 </script>
 </html>
