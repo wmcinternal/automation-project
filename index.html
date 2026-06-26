@@ -38,7 +38,7 @@
             .dashboard-card {
                 background-color: var(--card-bg);
                 width: 100%;
-                max-width: 500px;
+                max-width: 80%;
                 padding: 30px;
                 border-radius: 12px;
                 box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
@@ -87,7 +87,7 @@
                 align-items: center;
                 padding: 10px 25px;
                 box-sizing: border-box;
-                transition: background-color 0.4s, ease border-color 0.4s ease;
+                transition: background-color 0.4s ease, border-color 0.4s ease;
             }
 
             .footer-left-logo {
@@ -254,13 +254,13 @@
 
             .ledger-table td {
                 padding: 12px;
-                border-bottom: 1px solid black;
+                border-bottom: 1px solid var(--border-line);
                 color: var(--text-blue);
             }
 
             .green-pass-button {
                 color: #22c55e;
-                padding 4px 10px;
+                padding: 4px 10px;
                 border-radius: 12px;
                 font-weight: bold;
                 display: inline-block;
@@ -269,7 +269,7 @@
             .red-fail-button {
                 padding: 12px 12px;
                 color: red;
-                font-size: 50;
+                font-size: 14px;
             }
 
             .to-inspect {
@@ -343,7 +343,7 @@
                 </div>
 
                 <div>
-                    <label style="color: var(--text-blue);font-weight: 600;">Upload your file</label>
+                    <label style="color: var(--text-blue);font-weight: 600; margin-top: 20px;">Upload your file</label>
                     <input type="file" id="FileName" placeholder="Only accept .xlsx" accept=".xlsx" style="color: var(--text-main)">
                 </div>
 
@@ -414,9 +414,9 @@
             </div>
 
             <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <button type="button" id="ledgerPrevBtn">&lt; Next</button>
-                    <span style="font-size= 15px; color: #64748b;">Page 1/1</span>
-                    <button type="button" id="ledgerNextBtn">Previous &gt;</button>
+                    <button type="button" id="ledgerPrevBtn">&lt; Previous</button>
+                    <span style="font-size: 15px; color: #64748b;" id="PageNumber">Loading...</span>
+                    <button type="button" id="ledgerNextBtn">Next &gt;</button>
             </div>
 
         </div>
@@ -442,7 +442,7 @@
             <div>
                 <span>&copy; WMCubeHK 2026. All Rights Reserved.</span>
                 <span class="separator">|</span>
-                <span><a href="tas.html">Terms & Service</a></span>
+                <span><a href="tas.html" target="_blank">Terms & Service</a></span>
             </div>
 
             <div>
@@ -479,6 +479,12 @@
             if (id){
                 if (card==cardId){
                     id.style.display="block";
+
+                    if (cardId==='cardProduct') {
+                        document.getElementById("prodStep1").style.display="block";
+                        document.getElementById("prodStep2").style.display="none";
+                        document.getElementById("prodStep3").style.display="none";
+                    }
                 }
                 else {
                     id.style.display="none";
@@ -490,6 +496,9 @@
     function refresh(){
 
         showCard("cardIntro");
+        document.getElementById("prodStep1").style.display="block";
+        document.getElementById("prodStep2").style.display="none";
+        document.getElementById("prodStep3").style.display="none";
 
         const sidePanel=document.getElementById("sidePanel");
         if (sidePanel && sidePanel.classList.contains("open")){
@@ -570,6 +579,11 @@
         {time: "2026-06-17 16:22:30", ref: "WMC-20260617-192648", operator: "Jasmin Kwok", file: "SFC39.xlsx", status: "Pass"},
         {time: "2026-06-14 18:59:07", ref: "WMC-20260614-491541", operator: "Kenny Pong", file: "SFC33.xlsx", status: "Pass"},
         {time: "2026-06-14 14:08:59", ref: "WMC-20260614-813910", operator: "Jason Wong", file: "SFC28.xlsx", status: "Fail"},
+        {time: "2026-06-14 11:59:16", ref: "WMC-20260614-410480", operator: "Jason Wong", file: "SFC21.xlsx", status: "Pass"},
+        {time: "2026-06-12 09:22:47", ref: "WMC-20260612-917491", operator: "Adam Leung", file: "SFC92.xlsx", status: "Pass"},
+        {time: "2026-06-12 19:51:26", ref: "WMC-20260612-217026", operator: "Kenny Pong", file: "SFC02.xlsx", status: "Pass"},
+        {time: "2026-06-11 12:38:20", ref: "WMC-20260611-296320", operator: "Jason Wong", file: "SFC37.xlsx", status: "Fail"},
+        
     ];
 
     function renderTable(tableData){
@@ -606,7 +620,19 @@
 
     };
 
-    renderTable(ledgerData);
+    let curPage=1;
+    const maxEntry=5;
+    let activeData=[...ledgerData];
+
+    const initialMaxPage=Math.ceil(activeData.length/maxEntry) || 1;
+    document.getElementById("PageNumber").textContent="Page: "+curPage+"/"+initialMaxPage;
+
+    document.getElementById("ledgerPrevBtn").style.visibility="hidden";
+    if (curPage===initialMaxPage){
+        document.getElementById("ledgerNextBtn").style.visibility="hidden";
+    }
+    
+    renderTable(activeData.slice(0,maxEntry));
 
     document.getElementById("ledgerSearch").addEventListener("input",function(event){
 
@@ -620,10 +646,91 @@
             return matchedRef || matchedOp || matchedFile;
         });
 
-        renderTable(filteredResults);
+        curPage=1;
+        activeData=filteredResults;
+
+        const maxPage=Math.ceil(activeData.length/maxEntry) || 1;
+        document.getElementById("PageNumber").textContent="Page: "+curPage+"/"+maxPage;
+
+        document.getElementById("ledgerPrevBtn").style.visibility="hidden";
+        if (curPage===maxPage){
+            document.getElementById("ledgerNextBtn").style.visibility="hidden";
+        }
+
+        else {
+            document.getElementById("ledgerNextBtn").style.visibility="visible";
+        }
+        const startIndex=(curPage-1)*maxEntry;
+        const endIndex=startIndex+maxEntry;
+
+        renderTable(activeData.slice(startIndex, endIndex));
     });
 
 
+    document.getElementById("ledgerPrevBtn").addEventListener("click", function(){
+
+        if (curPage>1){
+            curPage--;
+        }
+        
+        
+        const maxPage=Math.ceil(activeData.length/maxEntry) || 1;
+
+        document.getElementById("PageNumber").textContent="Page: "+curPage+"/"+maxPage;
+
+        if (curPage===1){
+            document.getElementById("ledgerPrevBtn").style.visibility="hidden";
+        }
+        else {
+            document.getElementById("ledgerPrevBtn").style.visibility="visible";
+        }
+
+        if (curPage===maxPage){
+            document.getElementById("ledgerNextBtn").style.visibility="hidden";
+        }
+        else {
+            document.getElementById("ledgerNextBtn").style.visibility="visible";
+        }
+
+        const startIndex=(curPage-1)*maxEntry;
+        const endIndex=startIndex+maxEntry;
+
+ 
+
+        renderTable(activeData.slice(startIndex, endIndex));
+    });
+
+
+    document.getElementById("ledgerNextBtn").addEventListener("click", function(){
+
+        const maxPage=Math.ceil(activeData.length/maxEntry) || 1;
+
+        if (curPage<maxPage){
+            curPage++;
+        }
+        
+        document.getElementById("PageNumber").textContent="Page: "+curPage+"/"+maxPage;
+
+        if (curPage===1){
+            document.getElementById("ledgerPrevBtn").style.visibility="hidden";
+        }
+        else {
+            document.getElementById("ledgerPrevBtn").style.visibility="visible";
+        }
+
+        if (curPage===maxPage){
+            document.getElementById("ledgerNextBtn").style.visibility="hidden";
+        }
+        else {
+            document.getElementById("ledgerNextBtn").style.visibility="visible";
+        }
+
+
+        const startIndex=(curPage-1)*maxEntry;
+        const endIndex=startIndex+maxEntry;
+
+        renderTable(activeData.slice(startIndex, endIndex));
+    });
 
 
 </script>
