@@ -87,7 +87,7 @@
                 align-items: center;
                 padding: 10px 25px;
                 box-sizing: border-box;
-                transition: background-color 0.4s ease border-color 0.4s ease;
+                transition: background-color 0.4s, ease border-color 0.4s ease;
             }
 
             .footer-left-logo {
@@ -229,6 +229,56 @@
                 text-align: center;
                 padding: 12px;
             }
+
+            .table-container {
+                width: 100%;
+                overflow-x: auto;
+            }
+
+            .ledger-table {
+                border-collapse: collapse;
+                width: 100%;
+                overflow-x: auto;
+                text-align: left;
+                font-size: 14px;
+                
+            }
+
+            .ledger-table th {
+
+                padding: 12px;
+                border-bottom: 2px solid var(--border-line);
+                color: var(--text-blue);
+
+            }
+
+            .ledger-table td {
+                padding: 12px;
+                border-bottom: 1px solid black;
+                color: var(--text-blue);
+            }
+
+            .green-pass-button {
+                color: #22c55e;
+                padding 4px 10px;
+                border-radius: 12px;
+                font-weight: bold;
+                display: inline-block;
+            }
+
+            .red-fail-button {
+                padding: 12px 12px;
+                color: red;
+                font-size: 50;
+            }
+
+            .to-inspect {
+                padding: 4px 8px;
+                border-radius: 4px;
+                cursor: pointer;
+                transition: all 0.2s ease;
+            }
+
         </style>
 </head>
 
@@ -334,8 +384,41 @@
         </div>
 
         <div id="cardHistory" class="dashboard-card" style="display: none;">
-            <h2>Service Terminal</h2>
-            <p>Backend execution status monitoring array will display here. </p>
+            
+            
+
+            <h2>Ledger History</h2>
+
+            <div style="margin-bottom: 20px;">
+                <input type="text" id="ledgerSearch" placeholder="Search by Ref ID, Operator or File Name..."
+                        style="width: 100%; padding: 12px; border-radius: 6px; border: 1px solid var(--border-line); background: transparent; color: var(--text-main); font-size: 14px; box-sizing: border-box;">
+            </div>
+
+            <div class="table-container">
+
+                <table class="ledger-table">
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>Ref ID</th>
+                            <th>Operator Name</th>
+                            <th>File Name</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        
+                    </tbody>
+                </table>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <button type="button" id="ledgerPrevBtn">&lt; Next</button>
+                    <span style="font-size= 15px; color: #64748b;">Page 1/1</span>
+                    <button type="button" id="ledgerNextBtn">Previous &gt;</button>
+            </div>
+
         </div>
     </main> 
 
@@ -475,6 +558,73 @@
             }
         }
     });
+
+    const ledgerData=[
+        {time: "2026-06-26 13:22:31", ref: "WMC-20260626-293618", operator: "Jason Wong", file: "SFC81.xlsx", status: "Pass"},
+        {time: "2026-06-26 09:42:11", ref: "WMC-20260626-284927", operator: "Jason Wong", file: "SFC91.xlsx", status: "Fail"},
+        {time: "2026-06-25 14:42:53", ref: "WMC-20260625-924024", operator: "Kenny Pong", file: "SFC34.xlsx", status: "Pass"},
+        {time: "2026-06-25 17:47:16", ref: "WMC-20260625-921618", operator: "Jasmin Kwok", file: "SFC32.xlsx", status: "Pass"},
+        {time: "2026-06-23 10:12:21", ref: "WMC-20260623-732942", operator: "Jason Wong", file: "SFC02.xlsx", status: "Pass"},
+        {time: "2026-06-21 15:51:23", ref: "WMC-20260621-580931", operator: "Jason Wong", file: "SFC47.xlsx", status: "Fail"},
+        {time: "2026-06-20 12:33:57", ref: "WMC-20260620-318391", operator: "Jason Wong", file: "SFC29.xlsx", status: "Fail"},
+        {time: "2026-06-17 16:22:30", ref: "WMC-20260617-192648", operator: "Jasmin Kwok", file: "SFC39.xlsx", status: "Pass"},
+        {time: "2026-06-14 18:59:07", ref: "WMC-20260614-491541", operator: "Kenny Pong", file: "SFC33.xlsx", status: "Pass"},
+        {time: "2026-06-14 14:08:59", ref: "WMC-20260614-813910", operator: "Jason Wong", file: "SFC28.xlsx", status: "Fail"},
+    ];
+
+    function renderTable(tableData){
+        const tableBody=document.querySelector(".ledger-table tbody");
+
+        tableBody.innerHTML="";
+
+        tableData.forEach(function(row){
+            
+            let statusHtml="";
+            let actionHtml="";
+            if (row.status==="Pass"){
+                statusHtml='<span class="green-pass-button">🟢 Match</span>';
+                actionHtml='<span>---</span>';
+            }
+            else {
+                statusHtml='<span class="red-fail-button">🔴Failed</span>';
+                actionHtml='<span class="to-inspect" style="cursor: pointer;">🔍Inspect</span>';
+            }
+
+            const tr=document.createElement("tr");
+            tr.innerHTML=`
+                <td>${row.time}</td>
+                <td>${row.ref}</td>
+                <td>${row.operator}</td>
+                <td>${row.file}</td>
+                <td>${statusHtml}</td>
+                <td>${actionHtml}</td>
+            `;
+
+            tableBody.appendChild(tr);
+
+        });
+
+    };
+
+    renderTable(ledgerData);
+
+    document.getElementById("ledgerSearch").addEventListener("input",function(event){
+
+        const typedText=event.target.value.toLowerCase();
+
+        const filteredResults=ledgerData.filter(function(row){
+            const matchedRef=row.ref.toLowerCase().includes(typedText);
+            const matchedOp=row.operator.toLowerCase().includes(typedText);
+            const matchedFile=row.file.toLowerCase().includes(typedText);
+
+            return matchedRef || matchedOp || matchedFile;
+        });
+
+        renderTable(filteredResults);
+    });
+
+
+
 
 </script>
 </html>
