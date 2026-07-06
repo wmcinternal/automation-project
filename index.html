@@ -156,7 +156,7 @@
             .header-logo { font-weight: 700; color: var(--text-blue);}
             .header-right { display: flex; align-items: center; gap: 15px;}
             .theme-btn {background: none; border: 1px solid var(--border-line); color: var(--text-main); padding: 5px 10px; cursor: pointer;}
-            
+           
             #menuBtn {
                 background: none;
                 border: none;
@@ -514,7 +514,7 @@
         const currentTheme=rootElement.getAttribute("data-theme");
         if (currentTheme==="dark"){
             rootElement.setAttribute("data-theme", "light");
-            document.getElementById("themeToggleBtn").textContent="Dark Theme";
+            document.getElementById("themeToggleBtn").textContent="Dark";
         }
         else {
             rootElement.setAttribute("data-theme", "dark");

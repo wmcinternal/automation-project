@@ -95,22 +95,16 @@ def save_audit_transaction(session_meta: dict, engine_results_list: list):
     conn.close()
 
 
-def get_ledger_history():
-    conn=get_db_connection()
-    cursor=conn.cursor()
-
-    cursor.execute("SELECT * FROM audit_sessions ORDER BY timestamp DESC")
-    rows=cursor.fetchall()
-    conn.close()
-    return [dict(row) for row in rows]
-
-
-def get_audit_report_details(target_ref_id: str):
+def get_audit_sessions(target_ref_id: str=None):
 
     conn=get_db_connection()
     cursor=conn.cursor()
 
-    cursor.execute("SELECT * FROM audit_sessions WHERE ref_id= ?", (target_ref_id,))
+    if target_ref_id:
+        cursor.execute("SELECT * FROM audit_sessions WHERE ref_id= ?", (target_ref_id,))
+    else:
+        cursor.execute("SELECT * FROM audit_sessions ORDER BY timestamp DESC")
+
     rows=cursor.fetchall()
 
     cursor.close()

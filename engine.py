@@ -68,68 +68,19 @@ def extract_pdf_metrics(matched_pdf, target_currency, target_fund, folder="."):
 
     engine_data = {"Company": "NOT FOUND", "Dividend Option": "UNKNOWN", "Min Int Amt": 0.0, "Min Sub Amt": 0.0}
 
+    flat_fund_local = target_fund.lower().replace("-", " ")
+    class_list = ["a2", "aa", "at", "b2", "c2", "i2", "w2", "bt", "ct", "it", "ia", "wt", "a", "b", "c", "i"]
+    share_class_target = next((token for token in flat_fund_local.split() if token in class_list), "a")
+
+
     if not matched_pdf:
         return engine_data
-
-    fund_name_lower = target_fund.lower()
-    share_class_target = "classes a"  
-    for token in ["a2", "aa", "class at", "class aa", "classes i", "classes 12"]:
-        if token in fund_name_lower:
-            share_class_target = token
-            break
 
     try:
         with pdfplumber.open(os.path.join(folder, matched_pdf)) as pdf:
             pdf_text=pdf.pages[0].extract_text().lower()
             
-            lines=pdf_text.split("\n")
-
-            mgco_valid = re.search(r"\s*(management company|manager)[\s::]+(.*)", pdf_text)
-            if mgco_valid:
-                clean_mgco = re.sub(r"[\u4e00-\u9fff（）]+", "", mgco_valid.group(2))
-                engine_data["Company"] = clean_mgco.strip().title()
-
-            dividend_context = ""
-            for idx, line in enumerate(lines):
-                clean_line = " ".join(line.split())
-                if "dividend policy" in clean_line or "dividend option" in clean_line or "distribution shares" in clean_line:
-                    
-                    for offset in range(0, 15):
-                        if idx + offset < len(lines):
-                            dividend_context += " " + lines[idx + offset].lower()
-                    break
-
-                if dividend_context:
-                
-                    clean_context = dividend_context.replace(",", " ").replace("/", " ").replace("(", " ").replace(")", " ").replace(":", " ")
-                    class_clean_token = share_class_target.replace("classes ", "").replace("class ", "").strip()
-
-                    has_class_splits = any(c in clean_context for c in ["class a", "class b", "classes a", "classes i", "for classes"])
-                
-                    if has_class_splits and class_clean_token in clean_context.split():
-                        
-                        parts = dividend_context.split(class_clean_token)
-                    
-                        action_window = parts[-1][:120] if len(parts) > 1 else dividend_context
-                    
-                        c_status = "pay" in action_window or "distribut" in action_window or "declare" in action_window
-                        r_status = "reinvest" in action_window or "accumulat" in action_window
-                    
-                        if "none" in action_window[:40] or "no dividend" in action_window[:40]:
-                            engine_data["Dividend Option"] = "R"
-                        elif c_status and r_status:
-                            engine_data["Dividend Option"] = "C & R"
-                        elif c_status:
-                            engine_data["Dividend Option"] = "C"
-                        elif r_status:
-                            engine_data["Dividend Option"] = "R"
-                else:
-                    if "distribution share" in dividend_context and "accumulation share" in dividend_context:
-                        engine_data["Dividend Option"] = "C & R"
-                    elif "distribution" in dividend_context:
-                        engine_data["Dividend Option"] = "C"
-                    elif "accumulation" in dividend_context or "reinvest" in dividend_context:
-                        engine_data["Dividend Option"] = "R"
+            engine_data["Dividend Option"]=determine_general_dividend_option(pdf_text, target_fund)
 
 
             lines = pdf_text.split("\n")
@@ -145,7 +96,6 @@ def extract_pdf_metrics(matched_pdf, target_currency, target_fund, folder="."):
                         target_line = lines[idx + lookahead_offset]
                         
                         is_class_match = (
-                            share_class_target in target_line or 
                             "classes a" in target_line or 
                             "class a" in target_line or 
                             (share_class_target == "aa" and "aa" in target_line.replace(",", " ").split())
@@ -196,6 +146,74 @@ def extract_pdf_metrics(matched_pdf, target_currency, target_fund, folder="."):
 
 
     return engine_data
+
+
+def determine_general_dividend_option(pdf_text, fund_full_name):
+    
+    flat_pdf = " ".join(pdf_text.lower().split())
+    flat_fund = " ".join(fund_full_name.lower().replace("-", " ").split())
+    
+    class_list = ["a2", "aa", "at", "b2", "c2", "i2", "w2", "bt", "ct", "it", "ia", "wt", "a", "b", "c", "i"]
+
+    matched_token=None
+
+    for token in flat_fund.split():
+        if token in class_list:
+            matched_token = token
+            break
+            
+    if matched_token:
+        if f"({matched_token})" in flat_fund or f" {matched_token} " in flat_fund:
+            if "(c)" in flat_fund or "acc" in flat_fund: return "R"
+            if "(d)" in flat_fund or "inc" in flat_fund: return "C"
+
+
+    if "dividend policy:" in flat_pdf:
+        raw_box = flat_pdf.split("dividend policy:")[1]
+
+        if raw_box.startswith(":"):
+            raw_box=raw_box[1:]
+        
+        for anchor in ["financial year end", "minimum investment", "dealing frequency", "ongoing charges"]:
+            if anchor in raw_box:
+                raw_box = raw_box.split(anchor)[0]
+                break
+                
+        box_text=raw_box.strip()
+
+        if "no dividend" in box_text or "none" in box_text:
+            return "R"
+
+        
+
+
+        if matched_token:
+            class_match = re.search(r'\b' + re.escape(matched_token) + r'\b', box_text)
+            if class_match:
+                class_coord = class_match.start()
+                
+                keywords = {
+                    "R": ["none", "no dividend", "accumulation", "accumulating"],
+                    "C & R": ["reinvested as elected", "or be reinvested"],
+                    "C": ["pay", "paid", "distribution", "pay monthly"]
+                }
+                
+                closest_option = "R"
+                min_distance = float('inf')
+                
+                for option, phrases in keywords.items():
+                    for phrase in phrases:
+                        matches = re.finditer(r'\b' + re.escape(phrase) + r'\b', box_text)
+                        for m in matches:
+                            distance = abs(m.start() - class_coord)
+                            if distance < min_distance:
+                                min_distance = distance
+                                closest_option = option
+                return closest_option
+
+    return "R"
+
+
 
 
 def run_audit_comparison(staff_row, engine_data, matched_pdf):
@@ -288,6 +306,8 @@ if __name__ == "__main__":
     
     
     generate_audit_report(final_audit_results)
+
+
 
 
             
