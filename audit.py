@@ -53,16 +53,18 @@ def save_audit_transaction(session_meta: dict, engine_results_list: list):
 
     overall_status="Pass"
     for engine_result in engine_results_list:
-        if "🔴" in str(engine_result.get("Dividend Check", "")) or \
-           "🔴" in str(engine_result.get("Min Int Amt Check", "")) or \ 
-           "🔴" in str(engine_result.get("Min Sub Amt Check", "")):
-           overall_status="Fail"
-           break
+        if (
+            "🔴" in str(engine_result.get("Min Int Amt Check", "")) or
+            "🔴" in str(engine_result.get("Min Sub Amt Check", ""))
+                
+        ):
+            overall_status="Fail"
+            break
 
 
     cursor.execute("""
         INSERT INTO audit_sessions (
-            ref_id, operator_name, file_name, overall_status,
+            ref_id, operator_name, file_name, overall_status
         ) VALUES (?, ?, ?, ?)
     """, (
         session_meta.get("ref_id"),
@@ -76,15 +78,14 @@ def save_audit_transaction(session_meta: dict, engine_results_list: list):
         cursor.execute("""
             INSERT INTO audit_records (
                 ref_id, fund_house, fund_name, currency, matched_pdf,
-                dividend_check_status, min_int_status, min_sub_status
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                min_int_status, min_sub_status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
         """, (
             session_meta.get("ref_id"),
             engine_result.get("Management Company"),
             engine_result.get("Target Fund"),
             engine_result.get("Currency"),
             engine_result.get("Matched PDF"),
-            engine_result.get("Dividend Check"),
             engine_result.get("Min Int Amt Check"),
             engine_result.get("Min Sub Amt Check")
         ))
@@ -108,6 +109,7 @@ def get_audit_sessions(target_ref_id: str=None):
     rows=cursor.fetchall()
 
     cursor.close()
+    conn.close()
 
     return [dict(row) for row in rows]
 

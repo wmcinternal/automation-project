@@ -4,6 +4,8 @@
 
 <head>
         <title>Automation Webpage</title>
+        <link rel="icon" type="image/x-icon" href="/favicon.ico.jpeg">
+
         <style>
 
             html[data-theme="dark"]{
@@ -365,6 +367,18 @@
                     Launch Automation
                 </button>
 
+                <div id="auditProgressContainer" style="display: none; margin-top: 25px; background: #1e293b; padding: 20px; border-radius: 8px; border: 1px solid #334155;">
+
+                    <div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 8px; ">
+                        <span id="progressStatusText" style="color: #38bdf8; font-weight: 700;">Initialing pipeline... </span>
+                        <span id="progressPercentText" style="color: #ffffff; font-weight: 700;">0%</span>
+                    </div>
+                    <div style="width: 100%; height: 8px; background-color: #0f172a; border-radius: 4px; overflow: hidden;">
+                        <div id="progressFillBar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #0ea5a9, #38bdf8); transition: width 0.4s ease;"></div>
+                    </div>
+
+                </div>
+
             </div>
 
             <div id="prodStep3" style="display: none">
@@ -435,14 +449,14 @@
     <footer class="global-footer">
         
         <div class="footer-left-logo">
-            <img src="logo.png.jpeg" alt="WM Cube HK Logo" class="footer-logo-img">
+            <img src="/logo.png.jpeg" alt="WM Cube HK Logo" class="footer-logo-img">
         </div>
 
         <div class="footer-center-copyright">
             <div>
                 <span>&copy; WMCubeHK 2026. All Rights Reserved.</span>
                 <span class="separator">|</span>
-                <span><a href="tas.html" target="_blank">Terms & Service</a></span>
+                <span><a href="/tas.html" target="_blank">Terms & Service</a></span>
             </div>
 
             <div>
@@ -485,12 +499,17 @@
                         document.getElementById("prodStep2").style.display="none";
                         document.getElementById("prodStep3").style.display="none";
                     }
+                    if (cardId==='cardHistory') {
+                        curPage=1;
+                        loadRealLedgerHistory();
+                    }
                 }
                 else {
                     id.style.display="none";
                 }
             }
         })
+        
     }
 
     function refresh(){
@@ -523,10 +542,23 @@
     });
 
     document.getElementById("Step1nextbutton").addEventListener("click", function(){
+        
+        const staffNameInput = document.getElementById("StaffName");
+        const fileInput = document.getElementById("FileName");
 
-        document.getElementById("typedName").textContent=document.getElementById("StaffName").value.trim() || "Anonymous Auditor";
-        const fileNode=document.getElementById("FileName").files[0];
-        document.getElementById("uploadedFile").textContent=fileNode ? fileNode.name: "No File Selected";
+        if (staffNameInput.value.trim()===""){
+            alert("🔒 Compliance Security Block: You must enter your Operator Name to sign this audit transaction!");
+            staffNameInput.focus();
+            return;
+        }
+        if (!fileInput.files[0]){
+            alert("🔒 File Intake Block: Please select your internal workspace Excel spreadsheet (.xlsx) to proceed!");
+            return;
+        }
+
+
+        document.getElementById("typedName").textContent=staffNameInput.value.trim();
+        document.getElementById("uploadedFile").textContent=fileInput.files[0].name;
 
         document.getElementById("prodStep1").style.display="none";
         document.getElementById("prodStep2").style.display="block";
@@ -537,24 +569,81 @@
   
 
     document.getElementById("launchAutomationBtn").addEventListener("click", function(){
-        const today=new Date();
-        const year=today.getFullYear();
-        const month=String(today.getMonth()+1).padStart(2,'0');
-        const day=String(today.getDate()).padStart(2,'0');
+        
+        const fileInput=document.getElementById("FileName");
+        const staffInput=document.getElementById("StaffName");
+        
+        if (!fileInput.files[0]){
+            alert("Please select an excel file before running the audit!");
+            return;
+        }
+        
+        const formData=new FormData();
+        formData.append("file", fileInput.files[0]);
+        formData.append("Operator", staffInput.value.trim() || "Staff Auditor");
 
-        const formattedDate=year+month+day;
-        const randomSixDigit=Math.floor(100000+Math.random()*900000);
-        const customRefId="WMC-"+formattedDate+"-"+randomSixDigit;
+        document.getElementById("launchAutomationBtn").style.display = "none";
+        const progressContainer=document.getElementById("auditProgressContainer");
+        const fillBar=document.getElementById("progressFillBar");
+        const statusText=document.getElementById("progressStatusText");
+        const percentText=document.getElementById("progressPercentText");
 
-        const liveTimeStamp=today.toLocaleString();
+        progressContainer.style.display="block";
+        fillBar.style.width="35%";
+        statusText.textContent="🚀 Uploading Excel workspace to ./uploads...";
+        percentText.textContent="35%";
 
-        document.getElementById("currentrefID").textContent=customRefId;
-        document.getElementById("currenttimeStamp").textContent=liveTimeStamp;
-        document.getElementById("currentfileName").textContent=document.getElementById("uploadedFile").textContent;
-        document.getElementById("currentstaffName").textContent=document.getElementById("typedName").textContent;
 
-        document.getElementById("prodStep2").style.display="none";
-        document.getElementById("prodStep3").style.display="block";
+        fetch("/audit/run", {
+            method: "POST",
+            body: formData
+        })
+
+        .then(response=>{
+            fillBar.style.width="70%";
+            statusText.textContent="⚙️ Connecting to SFC Portal & scraping PDF cross-metrics...";
+            percentText.textContent="70%";
+            return response.json();
+        })
+
+        .then(data=>{
+            if (data.status==="success"){
+                fillBar.style.width="100%";
+                statusText.textContent="🗄️ Stamping audit transaction ledger rows...";
+                percentText.textContent="100%";
+
+                setTimeout(()=> {
+
+                    document.getElementById("currentrefID").textContent=data.ref_id;
+                    document.getElementById("currenttimeStamp").textContent=new Date().toLocaleString();
+                    document.getElementById("currentfileName").textContent=data.unique_file;
+                    document.getElementById("currentstaffName").textContent=staffInput.value.trim();
+
+                    document.getElementById("prodStep2").style.display = "none";
+                    document.getElementById("prodStep3").style.display = "block";
+                    
+
+                    progressContainer.style.display="none";
+                    fillBar.style.width="0%";
+                    document.getElementById("launchAutomationBtn").style.display="inline-block";
+
+                }, 600);
+            }
+            else {
+                alert("Audit Engine Error: " + data.message);
+                document.getElementById("auditProgressContainer").style.display = "none";
+                document.getElementById("launchAutomationBtn").style.display = "inline-block";
+
+            }
+        })
+        .catch(error=>{
+            console.error("Pipeline failure:", error);
+            alert("Server connection failed.");
+            document.getElementById("auditProgressContainer").style.display = "none";
+            document.getElementById("launchAutomationBtn").style.display = "inline-block";
+
+        });
+
     });
 
     document.addEventListener("click", function(event){
@@ -588,28 +677,32 @@
 
     function renderTable(tableData){
         const tableBody=document.querySelector(".ledger-table tbody");
-
         tableBody.innerHTML="";
 
         tableData.forEach(function(row){
             
             let statusHtml="";
             let actionHtml="";
-            if (row.status==="Pass"){
+
+            if (row.overall_status==="Pass"){
                 statusHtml='<span class="green-pass-button">🟢 Match</span>';
                 actionHtml='<span>---</span>';
             }
             else {
                 statusHtml='<span class="red-fail-button">🔴Failed</span>';
-                actionHtml='<span class="to-inspect" style="cursor: pointer;">🔍Inspect</span>';
+                actionHtml=`<span class="to-inspect" style="cursor: pointer;" onclick="downloadInspectionPackage('${row.ref_id}')">🔍Inspect</span>`;
             }
 
             const tr=document.createElement("tr");
+
+            const utcTime=new Date(row.timestamp+ " UTC");
+            const localTime=utcTime.toLocaleString();
+
             tr.innerHTML=`
-                <td>${row.time}</td>
-                <td>${row.ref}</td>
-                <td>${row.operator}</td>
-                <td>${row.file}</td>
+                <td>${localTime}</td>
+                <td>${row.ref_id}</td>
+                <td>${row.operator_name}</td>
+                <td>${row.file_name}</td>
                 <td>${statusHtml}</td>
                 <td>${actionHtml}</td>
             `;
@@ -620,50 +713,115 @@
 
     };
 
+
     let curPage=1;
     const maxEntry=5;
-    let activeData=[...ledgerData];
+    let activeData=[];
 
-    const initialMaxPage=Math.ceil(activeData.length/maxEntry) || 1;
-    document.getElementById("PageNumber").textContent="Page: "+curPage+"/"+initialMaxPage;
+    function loadRealLedgerHistory(){
+        fetch("/audit/history")
+            .then(response=>response.json())
+            .then(data=>{
+                if (data.status==="success"){
 
-    document.getElementById("ledgerPrevBtn").style.visibility="hidden";
-    if (curPage===initialMaxPage){
-        document.getElementById("ledgerNextBtn").style.visibility="hidden";
+                    
+                    const typedText=document.getElementById("ledgerSearch").value.toLowerCase();
+                    
+                    if (typedText.trim()!==""){
+                        activeData=data.history.filter(function(row){
+                            return (row.ref_id && row.ref_id.toLowerCase().includes(typedText)) ||
+                                   (row.operator_name && row.operator_name.toLowerCase().includes(typedText)) ||
+                                   (row.file_name && row.file_name.toLowerCase().includes(typedText));
+                    
+                    
+                        });
+                    }
+                    else {
+                        activeData=data.history;
+                    }
+                    
+
+                    
+                    
+                    
+                    const maxPage=Math.ceil(activeData.length/maxEntry) || 1;
+                    document.getElementById("PageNumber").textContent="Page: "+curPage+"/"+maxPage;
+
+                    if (curPage===1){
+                        document.getElementById("ledgerPrevBtn").style.visibility="hidden";
+                    }
+                    else {
+                        document.getElementById("ledgerPrevBtn").style.visibility="visible";
+                    }
+
+                    if (curPage===maxPage){
+                        document.getElementById("ledgerNextBtn").style.visibility="hidden";
+                    }
+                    else {
+                        document.getElementById("ledgerNextBtn").style.visibility="visible";
+                    }
+
+                    const startIndex=(curPage-1)*maxEntry;
+                    const endIndex=startIndex+maxEntry;
+                    renderTable(activeData.slice(startIndex, endIndex));
+                }   
+            })
+            .catch(error=> {
+                console.error("❌ Failed to pull real ledger rows from SQLite database:", error);
+            });
     }
-    
-    renderTable(activeData.slice(0,maxEntry));
+
+
+    function downloadInspectionPackage(refId) {
+
+
+
+        setTimeout(() => {
+
+            const orgUrl=`/audit/download/orginal/${refId}`;
+            const orgLink=document.createElement("a");
+            orgLink.href=orgUrl;
+            orgLink.download=`original_file_${refId}.xlsx`;
+            document.body.appendChild(orgLink);
+            orgLink.click();
+            document.body.removeChild(orgLink);
+
+        }, 500);
+
+
+
+        setTimeout(() => {
+
+            const fileUrl=`/audit/download/audit/${refId}`;
+            const fileLink=document.createElement("a");
+            fileLink.href=fileUrl;
+            fileLink.download=`audit_report_${refId}.xlsx`;
+            document.body.appendChild(fileLink);
+            fileLink.click();
+            document.body.removeChild(fileLink);
+        }, 1000);
+        
+
+        setTimeout(() => {
+
+            const txtUrl=`/audit/download/receipt/${refId}`;
+            const txtLink=document.createElement("a");
+            txtLink.href=txtUrl;
+            txtLink.download=`official_receipt_${refId}.txt`;
+            document.body.appendChild(txtLink);
+            txtLink.click();
+            document.body.removeChild(txtLink);
+
+
+        }, 1500);
+    }
+
+
+
 
     document.getElementById("ledgerSearch").addEventListener("input",function(event){
-
-        const typedText=event.target.value.toLowerCase();
-
-        const filteredResults=ledgerData.filter(function(row){
-            const matchedRef=row.ref.toLowerCase().includes(typedText);
-            const matchedOp=row.operator.toLowerCase().includes(typedText);
-            const matchedFile=row.file.toLowerCase().includes(typedText);
-
-            return matchedRef || matchedOp || matchedFile;
-        });
-
         curPage=1;
-        activeData=filteredResults;
-
-        const maxPage=Math.ceil(activeData.length/maxEntry) || 1;
-        document.getElementById("PageNumber").textContent="Page: "+curPage+"/"+maxPage;
-
-        document.getElementById("ledgerPrevBtn").style.visibility="hidden";
-        if (curPage===maxPage){
-            document.getElementById("ledgerNextBtn").style.visibility="hidden";
-        }
-
-        else {
-            document.getElementById("ledgerNextBtn").style.visibility="visible";
-        }
-        const startIndex=(curPage-1)*maxEntry;
-        const endIndex=startIndex+maxEntry;
-
-        renderTable(activeData.slice(startIndex, endIndex));
+        loadRealLedgerHistory();
     });
 
 
@@ -671,33 +829,9 @@
 
         if (curPage>1){
             curPage--;
+            loadRealLedgerHistory();
         }
         
-        
-        const maxPage=Math.ceil(activeData.length/maxEntry) || 1;
-
-        document.getElementById("PageNumber").textContent="Page: "+curPage+"/"+maxPage;
-
-        if (curPage===1){
-            document.getElementById("ledgerPrevBtn").style.visibility="hidden";
-        }
-        else {
-            document.getElementById("ledgerPrevBtn").style.visibility="visible";
-        }
-
-        if (curPage===maxPage){
-            document.getElementById("ledgerNextBtn").style.visibility="hidden";
-        }
-        else {
-            document.getElementById("ledgerNextBtn").style.visibility="visible";
-        }
-
-        const startIndex=(curPage-1)*maxEntry;
-        const endIndex=startIndex+maxEntry;
-
- 
-
-        renderTable(activeData.slice(startIndex, endIndex));
     });
 
 
@@ -707,30 +841,12 @@
 
         if (curPage<maxPage){
             curPage++;
+            loadRealLedgerHistory();
         }
         
-        document.getElementById("PageNumber").textContent="Page: "+curPage+"/"+maxPage;
-
-        if (curPage===1){
-            document.getElementById("ledgerPrevBtn").style.visibility="hidden";
-        }
-        else {
-            document.getElementById("ledgerPrevBtn").style.visibility="visible";
-        }
-
-        if (curPage===maxPage){
-            document.getElementById("ledgerNextBtn").style.visibility="hidden";
-        }
-        else {
-            document.getElementById("ledgerNextBtn").style.visibility="visible";
-        }
-
-
-        const startIndex=(curPage-1)*maxEntry;
-        const endIndex=startIndex+maxEntry;
-
-        renderTable(activeData.slice(startIndex, endIndex));
     });
+
+    loadRealLedgerHistory();
 
 
 </script>

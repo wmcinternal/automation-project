@@ -1,17 +1,22 @@
 import os
 import secrets
-from datatime import datatime, timedelta
-from flask import Flask, request, jsonify, render_template
+import pandas as pd
+from datetime import datetime, timedelta
+from flask import Flask, request, jsonify, render_template, send_from_directory, redirect, send_file
 
 
-from audit import init_db, save_audit_transaction, get_ledger_history, get_db_connection
+from audit import get_db_connection, init_db, save_audit_transaction, get_audit_sessions
 from engine import find_and_lock_pdf, extract_pdf_metrics, run_audit_comparison, generate_audit_report
 
 website=Flask(__name__, template_folder=".")
 
-UPLOAD_FOLDER=./uploads
+UPLOAD_FOLDER="./uploads"
 website.config["UPLOAD_FOLDER"]=UPLOAD_FOLDER
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+OUTPUT_FOLDER="./outputs"
+website.config["OUTPUT_FOLDER"]=OUTPUT_FOLDER
+os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
 
 @website.route("/auth/request-OTP", methods=["POST"])
@@ -24,7 +29,7 @@ def request_otp():
         return jsonify({"status": "error", "message": "Unauthorized domain. Staff email required."}), 403
 
     otp_code=str(secrets.randbelow(900000)+100000)
-    expiry_time=datatime.now()+timedelta(minutes=5)
+    expiry_time=datetime.now()+timedelta(minutes=5)
 
     conn=get_db_connection()
     cursor=conn.cursor()
@@ -46,7 +51,7 @@ def request_otp():
     return jsonify({"status": "success", "message": "Verification token sent to your inbox."})
 
 
-@website.route("/auth/verify-otp", methods["POSTS"])
+@website.route("/auth/verify-otp", methods=["POST"])
 def verify_otp():
 
     data=request.json or {}
@@ -78,7 +83,7 @@ def verify_otp():
     else:
         status, msg="success", "Identity confirmed. Access granted"
 
-        cursor.execute("UPDATE login_tokens SET is_used= 1 WHERE email=? AND code=?" (email, code))
+        cursor.execute("UPDATE login_tokens SET is_used= 1 WHERE email=? AND code=?", (email, submitted_code))
         conn.commit()
     conn.close()
     return jsonify({"status": status, "message": msg})
@@ -89,14 +94,23 @@ def run_compliance_audit():
     if 'file' not in request.files:
         return jsonify({"status": "error", "message": "No file detected."}), 400
 
-    excel_file=request.files["file"]
+    
     operator_name=request.form.get("Operator", "Staff Auditor")
-    session_ref=f"REF-{secrets.token_hex(4).upper()}"
 
-    saved_excel_path = os.path.join(website.config['UPLOAD_FOLDER'], excel_file.filename)
+
+    
+    session_date=datetime.now().strftime("%Y%m%d")
+    session_code=str(secrets.randbelow(900000)+100000)
+
+    session_ref=f"WMC-{session_date}-{session_code}"
+
+
+    excel_file=request.files["file"]
+    excel_file_name, extension=os.path.splitext(excel_file.filename)
+    unique_file=f"{excel_file_name}_{session_ref}{extension}"
+    saved_excel_path = os.path.join(website.config['UPLOAD_FOLDER'], unique_file)
     excel_file.save(saved_excel_path)
 
-    import pandas as pd
     try:
         df=pd.read_excel(saved_excel_path)
         company_rows=df.to_dict('records')
@@ -118,26 +132,118 @@ def run_compliance_audit():
     session_meta = {
         "ref_id": session_ref,
         "operator_name": operator_name,
-        "file_name": excel_file.filename
+        "file_name": unique_file
     }
-    save_audit_transaction(session_meta, engine_results
+    save_audit_transaction(session_meta, engine_results)
+    audit_file_name=f"audit_report_{session_ref}.xlsx"
+    audit_file_path=os.path.join(website.config["OUTPUT_FOLDER"], audit_file_name)
+
+    generate_audit_report(engine_results, audit_file_path)
 
     return jsonify({
         "status": "success",
         "ref_id": session_ref,
-        "audit_data": engine_results
+        "audit_data": engine_results,
+        "unique_file": unique_file
     })
 
 @website.route("/audit/history", methods=["GET"])
 def get_audit_history_logs():
-    history_logs=get_ledger_history()
+    history_logs=get_audit_sessions()
     return jsonify({"status": "success", "history": history_logs})
 
 @website.route("/homepage")
 def serve_frontend_dashboard():
     return render_template("index.html")
 
-if __name=="__main__":
+
+@website.route("/")
+def root_auto_redirect():
+    return redirect("/homepage")
+
+@website.route("/logo.png.jpeg")
+def server_logo():
+    return send_from_directory(website.root_path, 'logo.png.jpeg', mimetype='image/png')
+
+@website.route("/favicon.ico.jpeg")
+def serve_favicon():
+    return send_from_directory(website.root_path, 'favicon.ico.jpeg', mimetype='image/vnd.microsoft.icon')
+
+@website.route("/tas.html")
+def serve_tas():
+    return send_from_directory(website.root_path, 'tas.html', mimetype='text/html')
+
+
+@website.route("/audit/download/original<ref_id>", methods=["GET"])
+def download_original_file(ref_id):
+    conn=get_db_connection()
+    cursor=conn.cursor()
+    cursor.execute("SELECT * FROM audit_sessions where ref_id=?", (ref_id,))
+    row=cursor.fetone()
+    conn.close()
+
+    if not row or not row['file_name']:
+        return "❌ Error: Database record not found.", 404
+    
+    target_folder=os.path.join(os.getcwd(), "./uploads")
+    target_file=os.path.join(target_folder, row["file_name"])
+
+    if not os.path.exists(target_file):
+        return f"❌ Error: The physical file is missing from {file_path}", 404
+    
+    return send_file(target_file, as_attachment=True, download_name=f"original_file_{ref_id}.xlsx")
+
+
+
+
+
+@website.route("/audit/download/audit/<ref_id>", methods=["GET"])
+def download_audit_file():
+    output_folder=os.path.join(os.getcwd(), OUTPUT_FOLDER)
+    target_file_name=f"audit_report_{ref_id}.xlsx"
+    output_path=os.path.join(output_folder, target_file_name)
+
+    if not os.path.exists(output_path):
+        return f"❌ Error: The audited Excel file is missing from {target_file}", 404
+    
+
+    return send_file(output_path, as_attachment=True, download_name=target_file_name)
+
+
+@website.route("/audit/download/receipt/<ref_id>", methods=["GET"])
+def download_receipt_file(ref_id):
+    
+    conn=get_db_connection()
+    cursor=conn.cursor()
+    cursor.execute("SELECT * FROM audit_sessions WHERE ref_id= ? ", (ref_id,))
+    row=cursor.fetchone()
+    conn.close()
+
+    if not row:
+        return "❌ Error: Audit record not found.", 404
+
+    receipt_text=f"""
+                 ====================================================
+                 SFC COMPLIANCE AUTOMATION GATEWAY - OFFICIAL RECEIPT
+                 ===================================================
+                 Transaction Ref ID: {row["ref_id"]}
+                 TimeStamp: {row["timestamp"]}
+                 Operator Signature: {row["operator"]}
+                 Original File: {row["file_name"]}
+                 ====================================================
+                """
+
+
+    return Response(
+        receipt_text,
+        mimetype="text/plain";
+        headers={"Content-disposition": f"attachment; filename=official_receipt_{ref_id}.txt"}
+    )
+    
+
+
+
+if __name__=="__main__":
     init_db()
     print("\n🌍 Unified System Core Operational. Hosting local link: http://127.0.0.1:5000\n")
     website.run(debug=True, port=5000)

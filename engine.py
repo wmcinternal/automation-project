@@ -66,7 +66,7 @@ def find_and_lock_pdf(target_company_name, target_fund_name, folder="."):
 
 def extract_pdf_metrics(matched_pdf, target_currency, target_fund, folder="."):
 
-    engine_data = {"Company": "NOT FOUND", "Dividend Option": "UNKNOWN", "Min Int Amt": 0.0, "Min Sub Amt": 0.0}
+    engine_data = {"Company": "NOT FOUND", "Min Int Amt": 0.0, "Min Sub Amt": 0.0}
 
     flat_fund_local = target_fund.lower().replace("-", " ")
     class_list = ["a2", "aa", "at", "b2", "c2", "i2", "w2", "bt", "ct", "it", "ia", "wt", "a", "b", "c", "i"]
@@ -80,9 +80,6 @@ def extract_pdf_metrics(matched_pdf, target_currency, target_fund, folder="."):
         with pdfplumber.open(os.path.join(folder, matched_pdf)) as pdf:
             pdf_text=pdf.pages[0].extract_text().lower()
             
-            engine_data["Dividend Option"]=determine_general_dividend_option(pdf_text, target_fund)
-
-
             lines = pdf_text.split("\n")
             
             for idx, line in enumerate(lines):
@@ -148,71 +145,6 @@ def extract_pdf_metrics(matched_pdf, target_currency, target_fund, folder="."):
     return engine_data
 
 
-def determine_general_dividend_option(pdf_text, fund_full_name):
-    
-    flat_pdf = " ".join(pdf_text.lower().split())
-    flat_fund = " ".join(fund_full_name.lower().replace("-", " ").split())
-    
-    class_list = ["a2", "aa", "at", "b2", "c2", "i2", "w2", "bt", "ct", "it", "ia", "wt", "a", "b", "c", "i"]
-
-    matched_token=None
-
-    for token in flat_fund.split():
-        if token in class_list:
-            matched_token = token
-            break
-            
-    if matched_token:
-        if f"({matched_token})" in flat_fund or f" {matched_token} " in flat_fund:
-            if "(c)" in flat_fund or "acc" in flat_fund: return "R"
-            if "(d)" in flat_fund or "inc" in flat_fund: return "C"
-
-
-    if "dividend policy:" in flat_pdf:
-        raw_box = flat_pdf.split("dividend policy:")[1]
-
-        if raw_box.startswith(":"):
-            raw_box=raw_box[1:]
-        
-        for anchor in ["financial year end", "minimum investment", "dealing frequency", "ongoing charges"]:
-            if anchor in raw_box:
-                raw_box = raw_box.split(anchor)[0]
-                break
-                
-        box_text=raw_box.strip()
-
-        if "no dividend" in box_text or "none" in box_text:
-            return "R"
-
-        
-
-
-        if matched_token:
-            class_match = re.search(r'\b' + re.escape(matched_token) + r'\b', box_text)
-            if class_match:
-                class_coord = class_match.start()
-                
-                keywords = {
-                    "R": ["none", "no dividend", "accumulation", "accumulating"],
-                    "C & R": ["reinvested as elected", "or be reinvested"],
-                    "C": ["pay", "paid", "distribution", "pay monthly"]
-                }
-                
-                closest_option = "R"
-                min_distance = float('inf')
-                
-                for option, phrases in keywords.items():
-                    for phrase in phrases:
-                        matches = re.finditer(r'\b' + re.escape(phrase) + r'\b', box_text)
-                        for m in matches:
-                            distance = abs(m.start() - class_coord)
-                            if distance < min_distance:
-                                min_distance = distance
-                                closest_option = option
-                return closest_option
-
-    return "R"
-
 
 
 
@@ -221,20 +153,14 @@ def run_audit_comparison(staff_row, engine_data, matched_pdf):
     staff_house = str(staff_row.get("Fund House", ""))
     fund_name_target = str(staff_row.get("Fund Name", ""))
     currency_target = str(staff_row.get("Fund Currency", "")).upper()
-    dividend_target = str(staff_row.get("Dividend Option", ""))
     staff_amt = float(staff_row.get("Min Int Amt (Fund Ccy)", 0.0))
     sub_amt=float(staff_row.get("Min Sub Amt (Fund Ccy)", 0.0))
 
-    house_status=engine_data["Company"]
-    clean_excel_div = dividend_target.lower().replace(" ", "").replace("&", "")
-    clean_pdf_div = engine_data["Dividend Option"].lower().replace(" ", "").replace("&", "")
-
-    if clean_excel_div in clean_pdf_div or clean_pdf_div in clean_excel_div:
-        div_status = "🟢 MATCH"
-
+    if matched_pdf:
+        house_status=f"🟢 MATCH ({staff_house})"
     else:
-        div_status = f"🔴 FAIL (Excel: {dividend_target} | PDF: {engine_data['Dividend Option']})"
-
+        house_status="🔴 NO MATCHING PDF"
+    
     if staff_amt == engine_data["Min Int Amt"]:
         amt_status = "🟢 MATCH"
     else:
@@ -251,17 +177,16 @@ def run_audit_comparison(staff_row, engine_data, matched_pdf):
         "Management Company": house_status,
         "Target Fund": fund_name_target,
         "Currency": currency_target,
-        "Dividend Check": div_status,
         "Min Int Amt Check": amt_status,
         "Min Sub Amt Check": sub_status
     }
 
 
-def generate_audit_report(results_list):
+def generate_audit_report(results_list, output_path):
     
     report_df = pd.DataFrame(results_list)
     
-    report_df.to_excel("QA_Audit_Report.xlsx", index=False)
+    report_df.to_excel(output_path, index=False)
     
     print("\n✅ SUCCESS! Target metrics computed. Report saved to: QA_Audit_Report.xlsx\n")
 
@@ -292,14 +217,13 @@ if __name__ == "__main__":
         except Exception as row_error:
             
             print(f"❌ Error isolated on Row {index + 1}: {row_error}")
-            
             final_audit_results.append({
                 "Matched PDF": "EXCEPTION CAUGHT",
+                "Management Company": "💥 SCRAPER EXCEPTION",
                 "Target Fund": fund_raw,
                 "Currency": ccy_target.upper(),
-                "Management Company Check": "💥 SCRAPER EXCEPTION",
-                "Dividend Check": "💥 SCRAPER EXCEPTION",
-                "Min Int Amt Check": "💥 SCRAPER EXCEPTION"
+                "Min Int Amt Check": "💥 SCRAPER EXCEPTION",
+                "Min Sub Amt Check": "💥 SCRAPER EXCEPTION"
             })
 
     
