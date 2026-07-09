@@ -524,6 +524,9 @@
             sidePanel.classList.remove("open");
         }
 
+        document.getElementById("FileName").value="";
+        document.getElementById("StaffName").value="";
+
 
     }
 
@@ -778,7 +781,7 @@
 
         setTimeout(() => {
 
-            const orgUrl=`/audit/download/orginal/${refId}`;
+            const orgUrl=`/audit/download/original/${refId}`;
             const orgLink=document.createElement("a");
             orgLink.href=orgUrl;
             orgLink.download=`original_file_${refId}.xlsx`;

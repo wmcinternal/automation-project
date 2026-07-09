@@ -1,14 +1,34 @@
 import os
+import resend
 import secrets
 import pandas as pd
 from datetime import datetime, timedelta
-from flask import Flask, request, jsonify, render_template, send_from_directory, redirect, send_file
-
+from flask import Flask, request, jsonify, render_template, send_from_directory, send_file, redirect, Response
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+from werkzeug.utils import secure_filename
 
 from audit import get_db_connection, init_db, save_audit_transaction, get_audit_sessions
 from engine import find_and_lock_pdf, extract_pdf_metrics, run_audit_comparison, generate_audit_report
 
 website=Flask(__name__, template_folder=".")
+
+website.secret_key=os.getenv("FLASK_SECRET_KEY")
+resend.api_key=os.getenv("RESEND_API_KEY")
+
+
+limiter=Limiter(
+    get_remote_address,
+    app=website,
+    default_limits=["5 per minute"]
+)
+
+def limit_by_email():
+    if request.is_json:
+        return request.json.get("email", get_remote_address)
+    return get_remote_address
+
+
 
 UPLOAD_FOLDER="./uploads"
 website.config["UPLOAD_FOLDER"]=UPLOAD_FOLDER
@@ -20,13 +40,14 @@ os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
 
 @website.route("/auth/request-OTP", methods=["POST"])
-
+@limiter.limit("5 per minute", key_func=limit_by_email)
+@limiter.limit("10 per minute", key_func=get_remote_address)
 def request_otp():
     data=request.json or {}
     email=str(data.get("email", "")).lower().strip()
 
     if not email.endswith("@wmcubehk.com"):
-        return jsonify({"status": "error", "message": "Unauthorized domain. Staff email required."}), 403
+        return jsonify({"status": "error", "message": "🔒Unauthorized domain. Staff email required."}), 403
 
     otp_code=str(secrets.randbelow(900000)+100000)
     expiry_time=datetime.now()+timedelta(minutes=5)
@@ -43,12 +64,31 @@ def request_otp():
         "INSERT INTO login_tokens (email, code, expires_at) VALUES (?, ?, ?)",
         (email, otp_code, expiry_time)
     )
-
     conn.commit()
     conn.close()
 
-    print(f"📡 OTP [{otp_code}] generated safely and passed to API template wrapper for: {email}")
-    return jsonify({"status": "success", "message": "Verification token sent to your inbox."})
+    try:
+        resend.Emails.send({
+            "from": "WMCube Gateway <onboarding@resend.dev>",
+            "to": [email],
+            "subject": "Secure Gateway Login Code",
+            "html": f"""
+                    <div>
+                        <h2> Login Portal OTP </h2>
+                        <p> The security code is {otp_code} </p>
+                        <p> Enter if it is you. Do not share with others. </p>
+                        <p> The code will expiry in 5 minutes. </p>
+                        <p> SFC Automation Portal Security Team </p>
+                    </div>
+                    """
+        })
+        print(f"📡 OTP [{otp_code}] dispatched successfully...")
+        return jsonify({"status": "success"}), 200
+    
+    except Exception as e:
+        print(f"🚨 Critical Failure... : {e}")
+        return jsonify({"status": "error"}), 500
+
 
 
 @website.route("/auth/verify-otp", methods=["POST"])
@@ -106,7 +146,11 @@ def run_compliance_audit():
 
 
     excel_file=request.files["file"]
-    excel_file_name, extension=os.path.splitext(excel_file.filename)
+
+
+    safe_file_name=secure_filename(excel.file.filename)
+
+    excel_file_name, extension=os.path.splitext(safe_file_name)
     unique_file=f"{excel_file_name}_{session_ref}{extension}"
     saved_excel_path = os.path.join(website.config['UPLOAD_FOLDER'], unique_file)
     excel_file.save(saved_excel_path)
@@ -174,18 +218,18 @@ def serve_tas():
     return send_from_directory(website.root_path, 'tas.html', mimetype='text/html')
 
 
-@website.route("/audit/download/original<ref_id>", methods=["GET"])
+@website.route("/audit/download/original/<ref_id>", methods=["GET"])
 def download_original_file(ref_id):
     conn=get_db_connection()
     cursor=conn.cursor()
     cursor.execute("SELECT * FROM audit_sessions where ref_id=?", (ref_id,))
-    row=cursor.fetone()
+    row=cursor.fetchone()
     conn.close()
 
     if not row or not row['file_name']:
         return "❌ Error: Database record not found.", 404
     
-    target_folder=os.path.join(os.getcwd(), "./uploads")
+    target_folder=website.config["UPLOAD_FOLDER"]
     target_file=os.path.join(target_folder, row["file_name"])
 
     if not os.path.exists(target_file):
@@ -198,16 +242,16 @@ def download_original_file(ref_id):
 
 
 @website.route("/audit/download/audit/<ref_id>", methods=["GET"])
-def download_audit_file():
-    output_folder=os.path.join(os.getcwd(), OUTPUT_FOLDER)
+def download_audit_file(ref_id):
+    output_folder=website.config["OUTPUT_FOLDER"]
     target_file_name=f"audit_report_{ref_id}.xlsx"
     output_path=os.path.join(output_folder, target_file_name)
 
     if not os.path.exists(output_path):
-        return f"❌ Error: The audited Excel file is missing from {target_file}", 404
+        return f"❌ Error: The audited Excel file is missing from {output_path}", 404
     
 
-    return send_file(output_path, as_attachment=True, download_name=target_file_name)
+    return send_file(output_path, as_attachment=True, download_name=f"audit_report_{ref_id}.xlsx")
 
 
 @website.route("/audit/download/receipt/<ref_id>", methods=["GET"])
@@ -222,13 +266,17 @@ def download_receipt_file(ref_id):
     if not row:
         return "❌ Error: Audit record not found.", 404
 
+    
+    timeUtc=datetime.strptime(row["timestamp"][:19], "%Y-%m-%d %H:%M:%S")
+    timeLocal=timeUtc+timedelta(hours=8)
+
     receipt_text=f"""
                  ====================================================
                  SFC COMPLIANCE AUTOMATION GATEWAY - OFFICIAL RECEIPT
                  ===================================================
                  Transaction Ref ID: {row["ref_id"]}
-                 TimeStamp: {row["timestamp"]}
-                 Operator Signature: {row["operator"]}
+                 TimeStamp: {timeLocal}
+                 Operator Signature: {row["operator_name"]}
                  Original File: {row["file_name"]}
                  ====================================================
                 """
@@ -236,7 +284,7 @@ def download_receipt_file(ref_id):
 
     return Response(
         receipt_text,
-        mimetype="text/plain";
+        mimetype="text/plain",
         headers={"Content-disposition": f"attachment; filename=official_receipt_{ref_id}.txt"}
     )
     
