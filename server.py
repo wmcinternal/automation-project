@@ -3,7 +3,7 @@ import resend
 import secrets
 import pandas as pd
 from datetime import datetime, timedelta
-from flask import Flask, request, jsonify, render_template, send_from_directory, send_file, redirect, Response
+from flask import Flask, request, jsonify, render_template, send_from_directory, send_file, redirect, Response, abort
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from werkzeug.utils import secure_filename
@@ -20,7 +20,7 @@ resend.api_key=os.getenv("RESEND_API_KEY")
 limiter=Limiter(
     get_remote_address,
     app=website,
-    default_limits=["5 per minute"]
+    default_limits=["30 per minute"]
 )
 
 def limit_by_email():
@@ -287,6 +287,14 @@ def download_receipt_file(ref_id):
         mimetype="text/plain",
         headers={"Content-disposition": f"attachment; filename=official_receipt_{ref_id}.txt"}
     )
+
+
+@website.route("/template/download", methods=["GET"])
+def template_download():
+    template_file=os.path.join(os.getcwd(), "template.xlsx")
+    if not os.path.exists(template_file):
+        abort(404, description="Demo template file not found on server.")
+    return send_file(template_file, as_attachment=True, download_name='failing_demo_template.xlsx', mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     
 
 

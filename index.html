@@ -275,10 +275,35 @@
             }
 
             .to-inspect {
-                padding: 4px 8px;
-                border-radius: 4px;
+                padding: 8px 16px;
+                border-radius: 6px;
                 cursor: pointer;
-                transition: all 0.2s ease;
+                background: rgba(56, 189, 248, 0.08);
+                border: 1px solid #38bdf8;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 0.8px;
+                display: inline-flex;
+                gap: 6px;
+                align-items: center;
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+
+            .to_inspect: hover {
+                background: #38bdf8;
+                color: #000000;
+                transform: translateY(-2px);
+                box-shadow: 0 6px 20px rgba(56, 189, 248, 0.4);
+            }
+
+            .ledger-hint-banner {
+                background: rgba(56, 189, 248, 0.1);
+                border: 1px solid rgba(56, 189, 248, 0.3);
+                padding: 16px;
+                border-radius: 8px;
+                margin-bottom: 20px;
+                color: 
+
             }
 
         </style>
@@ -349,6 +374,10 @@
                     <input type="file" id="FileName" placeholder="Only accept .xlsx" accept=".xlsx" style="color: var(--text-main)">
                 </div>
 
+                <div style="display: block; background-color: #22c55e;">
+                    <a href="/template/download" download="failing_demo_template.xlsx">📥Click here to download failing demo template</a>
+                </div>
+
                 <div style="color:#64748b; margin-top: 30px; display: flex;">
                     <button id="Step1nextbutton" type="button">
                         Proceed to Verification &rarr;
@@ -389,6 +418,9 @@
                 <p><strong>File Name:</strong><span id="currentfileName"></span></p>
                 <p><strong>Staff Name:</strong><span id="currentstaffName"></span></p>
 
+                <p><strong id="resultText"></strong></p>
+
+
                 <button id="checkResultsBtn" type="button" onclick="showCard('cardHistory')" style="color: blue; padding: 20px 20px; cursor:pointer;">
                     Check Results &rarr;
                 </button>
@@ -403,9 +435,12 @@
 
             <h2>Ledger History</h2>
 
+            <div id="tableNotice"></div>
+
             <div style="margin-bottom: 20px;">
                 <input type="text" id="ledgerSearch" placeholder="Search by Ref ID, Operator or File Name..."
-                        style="width: 100%; padding: 12px; border-radius: 6px; border: 1px solid var(--border-line); background: transparent; color: var(--text-main); font-size: 14px; box-sizing: border-box;">
+                        style="width: 100%; padding: 12px; border-radius: 6px; border: 1px solid var(--border-line); background: transparent; color: var(--text-main); font-size: 14px; box-sizing: border-box; box-shadow: 0 0 10px rgba(56, 189, 248, 0.15)"
+                        onfocus="this.style.borderColor='#22c55e'; this.style.boxShadow='rgba(34, 197, 94, 0.3)';" onblur="this.style.borderColor='#38bdf8'; this.style.boxShadow='rgba(56, 189, 248, 0.15)';">
             </div>
 
             <div class="table-container">
@@ -482,6 +517,8 @@
         document.getElementById("sidePanel").classList.toggle("open");
     });
 
+    
+    let tableNoticeShown=false
     function showCard(cardId){
 
         const cards=['cardIntro','cardProduct','cardHistory'];
@@ -502,7 +539,27 @@
                     if (cardId==='cardHistory') {
                         curPage=1;
                         loadRealLedgerHistory();
+
+                        const tableBox=document.getElementById("tableNotice");
+
+
+                        if (!tableNoticeShown) {
+                            tableBox.innerHTML=`
+                                <div style="border: 1px solid #38bdf8; padding: 12px 16px; border-radius: 6px; margin-bottom: 20px; color: var(--text-main); display:flex; justify-content: space-between; align-items: center; box-sizing: border-box;">
+                                    <p>Look for data row below and click <strong>🔍 INSPECT</strong> to download your audit transaction.</p>
+                                    <p style="color: #ef4444; margin: 0; cursor: pointer; font-weight: bold; padding: 2px 6px; margin-bottom: 6px;" onclick="this.parentElement.remove(); tableNoticeShown=true;">X</p>
+
+                                </div>
+                            `;
+                        }
+                        else {
+                            tableBox.innerHTML="";
+                        }
+
+
+
                     }
+
                 }
                 else {
                     id.style.display="none";
@@ -625,6 +682,25 @@
                     document.getElementById("prodStep2").style.display = "none";
                     document.getElementById("prodStep3").style.display = "block";
                     
+                    let hasFailures=data.audit_data.some(function(row){
+                        return (row["Min Int Amt Check"] && row["Min Int Amt Check"].includes("🔴")) ||
+                               (row["Min Sub Amt Check"] && row["Min Sub Amt Check"].includes("🔴"));
+                        });
+
+                    if (hasFailures) {
+                        document.getElementById("resultText").innerHTML=`
+                            <p style="color: #ef4444; font-weight: bold; display: block; margin-bottom: 6px;">❌ AUDIT FAILED (Intentional Error Found)</p>
+                            <p>Click the<strong style="color: #cbd5e1;">Check Result</strong> button below.</p>
+                            <p>Click<strong style="color: #38bdf8; font-weight: bold;">🔍INSPECT</strong>in your new ledger entry to grab your fix packages!</p>
+                            `;
+                    }
+                    else {
+                        document.getElementById("resultText").innerHTML=`
+                            <p style="color: #22c55e; font-weight: bold; display: block; margin-bottom: 6px;">🟢 AUDIT SUCCESSFUL (Perfect Match)</p>
+                            <p>All internal excel balances successfully against live regulatory framework!</p>
+                            <p>Click <strong style="color: #38bdf8; font-weight: bold;">Check Result</strong> below to see your transaction record.</p>
+                            `;
+                    }
 
                     progressContainer.style.display="none";
                     fillBar.style.width="0%";
@@ -775,49 +851,24 @@
     }
 
 
-    function downloadInspectionPackage(refId) {
+    function downloadInspectionPackage(ref_id) {
+
+        const model=document.createElement("div");
+        model.id="ref_id";
+        model.style = "position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border: 2px solid #38bdf8; border-radius: 8px; z-index: 2001; box-shadow: 0 4px 15px rgba(0,0,0,0.2); font-family: sans-serif;";
 
 
+        model.innerHTML=`
+                        <p style="display: flex; justify-content: flex-end; color: #ef4444; cursor: pointer;" onclick="document.getElementById('ref_id').remove();">X</P>
+                        <a href="/audit/download/original/${ref_id}" download="original_file_${ref_id}.xlsx">original_file_${ref_id}.xlsx</a>
+                        <a href="/audit/download/audit/${ref_id}"  download="audit_report_${ref_id}.xlsx">audit_file_${ref_id}.xlsx</a>
+                        <a href="/audit/download/receipt/${ref_id}"  download="official_receipt_${ref_id}.xlsx">official_receipt_${ref_id}.xlsx</a>
+                        `
+                        
+        document.body.appendChild(model);
 
-        setTimeout(() => {
-
-            const orgUrl=`/audit/download/original/${refId}`;
-            const orgLink=document.createElement("a");
-            orgLink.href=orgUrl;
-            orgLink.download=`original_file_${refId}.xlsx`;
-            document.body.appendChild(orgLink);
-            orgLink.click();
-            document.body.removeChild(orgLink);
-
-        }, 500);
-
-
-
-        setTimeout(() => {
-
-            const fileUrl=`/audit/download/audit/${refId}`;
-            const fileLink=document.createElement("a");
-            fileLink.href=fileUrl;
-            fileLink.download=`audit_report_${refId}.xlsx`;
-            document.body.appendChild(fileLink);
-            fileLink.click();
-            document.body.removeChild(fileLink);
-        }, 1000);
-        
-
-        setTimeout(() => {
-
-            const txtUrl=`/audit/download/receipt/${refId}`;
-            const txtLink=document.createElement("a");
-            txtLink.href=txtUrl;
-            txtLink.download=`official_receipt_${refId}.txt`;
-            document.body.appendChild(txtLink);
-            txtLink.click();
-            document.body.removeChild(txtLink);
-
-
-        }, 1500);
     }
+
 
 
 
