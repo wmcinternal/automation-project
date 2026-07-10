@@ -148,7 +148,7 @@ def run_compliance_audit():
     excel_file=request.files["file"]
 
 
-    safe_file_name=secure_filename(excel.file.filename)
+    safe_file_name=secure_filename(excel_file.filename)
 
     excel_file_name, extension=os.path.splitext(safe_file_name)
     unique_file=f"{excel_file_name}_{session_ref}{extension}"
