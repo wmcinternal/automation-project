@@ -181,7 +181,7 @@ def run_compliance_audit():
         house_name = str(row.get("Fund House", ""))
         currency = str(row.get("Fund Currency", "")).lower()
 
-        pdf_match = webscrap_sfc_pdf(ce_no)
+        pdf_match = webscrap_sfc_pdf(ce_no, folder="webscrap")
 
         pdf_filename=os.path.basename(pdf_match) if pdf_match else None
         metrics = extract_pdf_metrics(pdf_filename, currency, fund_name, folder="webscrap")
@@ -332,7 +332,7 @@ def download_webscrap_source():
     webscrap_stream.seek(0)
 
     return send_file=(
-        webscrap_stream, mimetype="attachments/zip", as_attachment=True, download_name=f"webscrap_source_{ref_id}.zip"
+        webscrap_stream, mimetype="application/zip", as_attachment=True, download_name=f"webscrap_source_{ref_id}.zip"
     )
     
 
