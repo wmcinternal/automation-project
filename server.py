@@ -1,7 +1,9 @@
 import os
+import io
 import time
 import resend
 import secrets
+import zipfile
 import pandas as pd
 from datetime import datetime, timedelta
 from flask import Flask, request, jsonify, render_template, send_from_directory, send_file, redirect, Response, abort
@@ -311,12 +313,38 @@ def download_receipt_file(ref_id):
     )
 
 
+@website.route("/audit/download/webscrap/<ref_id>", methods=["GET"])
+def download_webscrap_source():
+
+    webscrap_source="webscrap"
+    if not os.path.exists(webscrap_source) or not os.listdir(webscrap_source):
+        return "❌ Error: The webscrap folder is empty or missing.", 404
+
+    webscrap_stream=io.BytesIO()
+
+    with zipfile.ZipFile(webscrap_stream, "w", zipfile.ZIP_DEFLATED) as zipf:
+        for root, files, dirs in os.walk(WEBSCRAP_FOLDER):
+            for file in files:
+                if file.endswith("KPS.pdf"):
+                    file_source=os.path.join(webscrap_source, file)
+                    zipf.write(file_source)
+    
+    webscrap_stream.seek(0)
+
+    return send_file={
+        webscrap_stream, mimetype="attachments/zip", as_attachment=True, download_name=f"webscrap_source_{ref_id}.zip"
+    }
+    
+
+
+
+
 @website.route("/template/download", methods=["GET"])
 def template_download():
     template_file=os.path.join(os.getcwd(), "template_golden.xlsx")
     if not os.path.exists(template_file):
         abort(404, description="Demo template file not found on server.")
-    return send_file(template_file, as_attachment=True, download_name='failing_demo_template.xlsx', mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    return send_file(template_file, as_attachment=True, download_name='template_golden.xlsx', mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     
 
 
