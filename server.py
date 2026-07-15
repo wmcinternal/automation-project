@@ -176,8 +176,8 @@ def run_compliance_audit():
         house_name = str(row.get("Fund House", ""))
         currency = str(row.get("Fund Currency", "")).lower()
 
-        pdf_match = webscrap_sfc_pdf(house_name, fund_name)
-        metrics = extract_pdf_metrics(pdf_match, currency, fund_name, folder=".")
+        pdf_match = webscrap_sfc_pdf(house_name, fund_name, folder="webscrap")
+        metrics = extract_pdf_metrics(pdf_match, currency, fund_name, folder="webscrap")
         comparison = run_audit_comparison(row, metrics, pdf_match)
         engine_results.append(comparison)
     
