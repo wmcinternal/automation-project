@@ -313,7 +313,7 @@ def download_receipt_file(ref_id):
 
 @website.route("/template/download", methods=["GET"])
 def template_download():
-    template_file=os.path.join(os.getcwd(), "template.xlsx")
+    template_file=os.path.join(os.getcwd(), "template_golden.xlsx")
     if not os.path.exists(template_file):
         abort(404, description="Demo template file not found on server.")
     return send_file(template_file, as_attachment=True, download_name='failing_demo_template.xlsx', mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
