@@ -314,25 +314,28 @@ def download_receipt_file(ref_id):
 
 
 @website.route("/audit/download/webscrap/<ref_id>", methods=["GET"])
-def download_webscrap_source():
+def download_webscrap_source(ref_id):
 
-    webscrap_source="webscrap"
+    webscrap_source=os.path.join(os.path.dirname(os.path.abspath(__file__)), "webscrap")
     if not os.path.exists(webscrap_source) or not os.listdir(webscrap_source):
         return "❌ Error: The webscrap folder is empty or missing.", 404
 
     webscrap_stream=io.BytesIO()
 
     with zipfile.ZipFile(webscrap_stream, "w", zipfile.ZIP_DEFLATED) as zipf:
-        for root, files, dirs in os.walk(WEBSCRAP_FOLDER):
+        for root, dirs, files in os.walk(webscrap_source):
             for file in files:
                 if file.endswith("KPS.pdf"):
-                    file_source=os.path.join(webscrap_source, file)
-                    zipf.write(file_source)
+                    file_source=os.path.join(root, file)
+                    zipf.write(file_source, arcname=file)
     
     webscrap_stream.seek(0)
 
     return send_file(
-        webscrap_stream, mimetype="application/zip", as_attachment=True, download_name=f"webscrap_source_{ref_id}.zip"
+        webscrap_stream, 
+        mimetype="application/zip", 
+        as_attachment=True, 
+        download_name=f"webscrap_source_{ref_id}.zip"
     )
     
 
