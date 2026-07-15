@@ -145,8 +145,8 @@ def run_compliance_audit():
     session_ref=f"WMC-{session_date}-{session_code}"
 
 
-    if 'file' not in request.files:
-        golden_path=os.path.join(website.config['UPLOAD_FOLDER'], "template_golden.xlsx")
+    if 'file' not in request.files or operator_name=="User":
+        golden_path=os.path.join(os.path.dirname(os.path.abspath(__file__)), "template_golden.xlsx")
         if os.path.exists(golden_path):
             saved_excel_path=golden_path
             unique_file="template_golden.xlsx"
