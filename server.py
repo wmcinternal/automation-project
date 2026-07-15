@@ -30,7 +30,7 @@ def limit_by_email():
     return get_remote_address
 
 
-UPLOAD_DIR=os.path.dirname(os.path.abspath(__FILE__))
+UPLOAD_DIR=os.path.dirname(os.path.abspath(__file__))
 UPLOAD_FOLDER=os.path.join(BAS_DIR, "uploads")
 website.config["UPLOAD_FOLDER"]=UPLOAD_FOLDER
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
