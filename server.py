@@ -10,7 +10,7 @@ from flask_limiter.util import get_remote_address
 from werkzeug.utils import secure_filename
 
 from audit import get_db_connection, init_db, save_audit_transaction, get_audit_sessions
-from engine import find_and_lock_pdf, extract_pdf_metrics, run_audit_comparison, generate_audit_report
+from engine import webscrap_sfc_pdf, load_target_data, extract_pdf_metrics, run_audit_comparison, generate_audit_report
 
 website=Flask(__name__, template_folder=".")
 
