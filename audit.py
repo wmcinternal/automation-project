@@ -20,7 +20,8 @@ def init_db():
             ref_id TEXT UNIQUE,
             operator_name TEXT,
             file_name TEXT,
-            overall_status TEXT
+            overall_status TEXT,
+            execution_time REAL
 
         )
     """)
@@ -64,13 +65,14 @@ def save_audit_transaction(session_meta: dict, engine_results_list: list):
 
     cursor.execute("""
         INSERT INTO audit_sessions (
-            ref_id, operator_name, file_name, overall_status
-        ) VALUES (?, ?, ?, ?)
+            ref_id, operator_name, file_name, overall_status, execution_time
+        ) VALUES (?, ?, ?, ?, ?)
     """, (
         session_meta.get("ref_id"),
         session_meta.get("operator_name"),
         session_meta.get("file_name"),
-        overall_status
+        overall_status,
+        session_meta.get("execution_time")
 
     ))
 
