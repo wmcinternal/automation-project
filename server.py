@@ -331,7 +331,7 @@ def download_webscrap_source():
     
     webscrap_stream.seek(0)
 
-    return send_file=(
+    return send_file(
         webscrap_stream, mimetype="application/zip", as_attachment=True, download_name=f"webscrap_source_{ref_id}.zip"
     )
     
