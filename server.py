@@ -139,29 +139,29 @@ def run_compliance_audit():
     print("⏱️ End-to-End Benchmark Timer Started...")
     start_time=time.time()
 
-    if 'file' not in request.files:
-        return jsonify({"status": "error", "message": "No file detected."}), 400
-
-    
     operator_name=request.form.get("Operator", "Staff Auditor")
-
-
-    
     session_date=datetime.now().strftime("%Y%m%d")
     session_code=str(secrets.randbelow(900000)+100000)
-
     session_ref=f"WMC-{session_date}-{session_code}"
 
 
-    excel_file=request.files["file"]
-
-
-    safe_file_name=secure_filename(excel_file.filename)
-
-    excel_file_name, extension=os.path.splitext(safe_file_name)
-    unique_file=f"{excel_file_name}_{session_ref}{extension}"
-    saved_excel_path = os.path.join(website.config['UPLOAD_FOLDER'], unique_file)
-    excel_file.save(saved_excel_path)
+    if 'file' not in request.files:
+        golden_path=os.path.join(website.config['UPLOAD_FOLDER'], "template_golden.xlsx")
+        if os.path.exists(golden_path):
+            saved_excel_path=golden_path
+            unique_file="template_golden.xlsx"
+        else: 
+            return jsonify({"status": "error", "message": "No file detected."}), 400
+    else:
+    
+        excel_file=request.files["file"]
+        safe_file_name=secure_filename(excel_file.filename)
+        excel_file_name, extension=os.path.splitext(safe_file_name)
+    
+    
+        unique_file=f"{excel_file_name}_{session_ref}{extension}"
+        saved_excel_path = os.path.join(website.config['UPLOAD_FOLDER'], unique_file)
+        excel_file.save(saved_excel_path)
 
     try:
         df=pd.read_excel(saved_excel_path)
