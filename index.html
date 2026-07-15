@@ -289,7 +289,7 @@
                 transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             }
 
-            .to_inspect: hover {
+            .to_inspect:hover {
                 background: #38bdf8;
                 color: #000000;
                 transform: translateY(-2px);
@@ -302,7 +302,7 @@
                 padding: 16px;
                 border-radius: 8px;
                 margin-bottom: 20px;
-                color: 
+                color: #38bdf8;
 
             }
 
@@ -417,6 +417,7 @@
                 <p><strong>Time Stamp:</strong><span id="currenttimeStamp"></span></p>
                 <p><strong>File Name:</strong><span id="currentfileName"></span></p>
                 <p><strong>Staff Name:</strong><span id="currentstaffName"></span></p>
+                <p><strong>Execution Time:</strong><span id="currentexecutionTime"></span></p>
 
                 <p><strong id="resultText"></strong></p>
 
@@ -452,6 +453,7 @@
                             <th>Ref ID</th>
                             <th>Operator Name</th>
                             <th>File Name</th>
+                            <th>Execution Time</th>
                             <th>Status</th>
                             <th>Action</th>
                         </tr>
@@ -678,6 +680,7 @@
                     document.getElementById("currenttimeStamp").textContent=new Date().toLocaleString();
                     document.getElementById("currentfileName").textContent=data.unique_file;
                     document.getElementById("currentstaffName").textContent=staffInput.value.trim();
+                    document.getElementById("currentexecutionTime").textContent=data.execution_time+ " s";
 
                     document.getElementById("prodStep2").style.display = "none";
                     document.getElementById("prodStep3").style.display = "block";
@@ -782,6 +785,7 @@
                 <td>${row.ref_id}</td>
                 <td>${row.operator_name}</td>
                 <td>${row.file_name}</td>
+                <td>${row.execution_time} s</td>
                 <td>${statusHtml}</td>
                 <td>${actionHtml}</td>
             `;
