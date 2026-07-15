@@ -31,7 +31,7 @@ def limit_by_email():
 
 
 UPLOAD_DIR=os.path.dirname(os.path.abspath(__file__))
-UPLOAD_FOLDER=os.path.join(BAS_DIR, "uploads")
+UPLOAD_FOLDER=os.path.join(UPLOAD_DIR, "uploads")
 website.config["UPLOAD_FOLDER"]=UPLOAD_FOLDER
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
