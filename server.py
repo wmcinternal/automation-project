@@ -1,4 +1,5 @@
 import os
+import time
 import resend
 import secrets
 import pandas as pd
@@ -29,12 +30,13 @@ def limit_by_email():
     return get_remote_address
 
 
-
-UPLOAD_FOLDER="./uploads"
+UPLOAD_DIR=os.path.dirname(os.path.abspath(__FILE__))
+UPLOAD_FOLDER=os.path.join(BAS_DIR, "uploads")
 website.config["UPLOAD_FOLDER"]=UPLOAD_FOLDER
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-OUTPUT_FOLDER="./outputs"
+OUTPUT_DIR=os.path.dirname(os.path.abspath(__file__))
+OUTPUT_FOLDER=os.path.join(OUTPUT_DIR, "outputs")
 website.config["OUTPUT_FOLDER"]=OUTPUT_FOLDER
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
@@ -131,6 +133,10 @@ def verify_otp():
 
 @website.route("/audit/run", methods=["POST"])
 def run_compliance_audit():
+
+    print("⏱️ End-to-End Benchmark Timer Started...")
+    start_time=time.time()
+
     if 'file' not in request.files:
         return jsonify({"status": "error", "message": "No file detected."}), 400
 
@@ -162,6 +168,9 @@ def run_compliance_audit():
         return jsonify({"status": "error", "message": f"Invalid or corrupted Excel layout: {e}"}), 400
 
     engine_results=[]
+
+    
+
     for row in company_rows:
         fund_name = str(row.get("Fund Name", ""))
         house_name = str(row.get("Fund House", ""))
@@ -173,10 +182,16 @@ def run_compliance_audit():
         engine_results.append(comparison)
     
 
+    end_time=time.time()
+    execution_time=round(end_time-start_time, 2)
+    print(f"✅ Total Pipeline Execution Time: {execution_time} seconds.") 
+
+
     session_meta = {
         "ref_id": session_ref,
         "operator_name": operator_name,
-        "file_name": unique_file
+        "file_name": unique_file,
+        "execution_time": execution_time
     }
     save_audit_transaction(session_meta, engine_results)
     audit_file_name=f"audit_report_{session_ref}.xlsx"
@@ -188,7 +203,8 @@ def run_compliance_audit():
         "status": "success",
         "ref_id": session_ref,
         "audit_data": engine_results,
-        "unique_file": unique_file
+        "unique_file": unique_file,
+        "execution_time": execution_time
     })
 
 @website.route("/audit/history", methods=["GET"])
@@ -278,6 +294,7 @@ def download_receipt_file(ref_id):
                  TimeStamp: {timeLocal}
                  Operator Signature: {row["operator_name"]}
                  Original File: {row["file_name"]}
+                 Execution Time: {row["execution_time"]}s
                  ====================================================
                 """
 
