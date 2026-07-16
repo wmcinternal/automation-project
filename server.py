@@ -1,12 +1,13 @@
 import os
 import io
 import time
+import json
 import resend
 import secrets
 import zipfile
 import pandas as pd
 from datetime import datetime, timedelta
-from flask import Flask, request, jsonify, render_template, send_from_directory, send_file, redirect, Response, abort
+from flask import Flask, request, jsonify, render_template, send_from_directory, send_file, redirect, Response, abort, stream_with_context
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from werkzeug.utils import secure_filename
@@ -136,83 +137,99 @@ def verify_otp():
 @website.route("/audit/run", methods=["POST"])
 def run_compliance_audit():
 
-    print("⏱️ End-to-End Benchmark Timer Started...")
-    start_time=time.time()
+    def generate_events():
 
-    operator_name=request.form.get("Operator", "Staff Auditor")
-    session_date=datetime.now().strftime("%Y%m%d")
-    session_code=str(secrets.randbelow(900000)+100000)
-    session_ref=f"WMC-{session_date}-{session_code}"
-
-
-    if 'file' not in request.files or operator_name=="User":
-        golden_path=os.path.join(os.path.dirname(os.path.abspath(__file__)), "template_golden.xlsx")
-        if os.path.exists(golden_path):
-            saved_excel_path=golden_path
-            unique_file="template_golden.xlsx"
-        else: 
-            return jsonify({"status": "error", "message": "No file detected."}), 400
-    else:
+        yield "data: 🔋 Initialization complete. Automation core is online...\n\n"
     
-        excel_file=request.files["file"]
-        safe_file_name=secure_filename(excel_file.filename)
-        excel_file_name, extension=os.path.splitext(safe_file_name)
+        start_time=time.time()
+        operator_name=request.form.get("Operator", "Staff Auditor")
+        session_date=datetime.now().strftime("%Y%m%d")
+        session_code=str(secrets.randbelow(900000)+100000)
+        session_ref=f"WMC-{session_date}-{session_code}"
+
+
+        if 'file' not in request.files or operator_name=="User":
+            yield "data: 📂 Running Developer Sandbox Mode (Using template_golden.xlsx)\n\n"
+            golden_path=os.path.join(os.path.dirname(os.path.abspath(__file__)), "template_golden.xlsx")
+            if os.path.exists(golden_path):
+                saved_excel_path=golden_path
+                unique_file="template_golden.xlsx"
+            else: 
+                yield "data: ERROR: No file detected.\n\n"
+                return
+        else:
+            yield "data: 🚀 Reading system worksheet records...\n\n"
+            excel_file=request.files["file"]
+            safe_file_name=secure_filename(excel_file.filename)
+            excel_file_name, extension=os.path.splitext(safe_file_name)
     
     
-        unique_file=f"{excel_file_name}_{session_ref}{extension}"
-        saved_excel_path = os.path.join(website.config['UPLOAD_FOLDER'], unique_file)
-        excel_file.save(saved_excel_path)
+            unique_file=f"{excel_file_name}_{session_ref}{extension}"
+            saved_excel_path = os.path.join(website.config['UPLOAD_FOLDER'], unique_file)
+            excel_file.save(saved_excel_path)
 
-    try:
-        df=pd.read_excel(saved_excel_path)
-        company_rows=df.to_dict('records')
-    except Exception as e:
-        return jsonify({"status": "error", "message": f"Invalid or corrupted Excel layout: {e}"}), 400
+        try:
+            df=pd.read_excel(saved_excel_path)
+            company_rows=df.to_dict('records')
+        except Exception as e:
+            yield f"data: ERROR: Failed reading Excel spreadsheet: {e}\n\n"
+            return
 
-    engine_results=[]
-
-    
-
-    for row in company_rows:
-
-        ce_no=row.get("SFC Sub-fund CE No.")
-
-        fund_name = str(row.get("Fund Name", ""))
-        house_name = str(row.get("Fund House", ""))
-        currency = str(row.get("Fund Currency", "")).lower()
-
-        pdf_match = webscrap_sfc_pdf(ce_no, folder="webscrap")
-
-        pdf_filename=os.path.basename(pdf_match) if pdf_match else None
-        metrics = extract_pdf_metrics(pdf_filename, currency, fund_name, folder="webscrap")
-        comparison = run_audit_comparison(row, metrics, pdf_filename)
-        engine_results.append(comparison)
+        engine_results=[]
+        total_rows=len(company_rows)
+        yield f"data: 🤖 Processing target ledger. Found {total_rows} audit rows...\n\n"
     
 
-    end_time=time.time()
-    execution_time=round(end_time-start_time, 2)
-    print(f"✅ Total Pipeline Execution Time: {execution_time} seconds.") 
+        for index, row in enumerate(company_rows):
+
+            ce_no=row.get("SFC Sub-fund CE No.")
+            fund_name = str(row.get("Fund Name", ""))
+            yield f"data: ⚙️ Processing Row {index+1}/{total_rows}: Scraping SFC registry for '{fund_name[:25]}'...\n\n"
+        
+            pdf_match = webscrap_sfc_pdf(ce_no, folder="webscrap")
+            pdf_filename=os.path.basename(pdf_match) if pdf_match else None
+            yield f"data: 📥 Row {index+1}/{total_rows}: Scraping complete. Extracting target PDF metrics...\n\n"       
+        
+            currency=str(row.get("Fund Currency", "")).strip().lower()
+            metrics = extract_pdf_metrics(pdf_filename, currency, fund_name, folder="webscrap")
+            comparison = run_audit_comparison(row, metrics, pdf_filename)
+            yield f"data: 📊 Row {index+1}/{total_rows}: Comparing registry records with live database values...\n\n"
+            
+            engine_results.append(comparison)
+    
+        yield "data: 🗄️ Packaging evaluation ledger transactions & writing system reports...\n\n"
+        end_time=time.time()
+        execution_time=round(end_time-start_time, 2)
+        yield f"data: ✅ Total Pipeline Execution Time: {execution_time} seconds.\n\n" 
 
 
-    session_meta = {
-        "ref_id": session_ref,
-        "operator_name": operator_name,
-        "file_name": unique_file,
-        "execution_time": execution_time
-    }
-    save_audit_transaction(session_meta, engine_results)
-    audit_file_name=f"audit_report_{session_ref}.xlsx"
-    audit_file_path=os.path.join(website.config["OUTPUT_FOLDER"], audit_file_name)
+        session_meta = {
+            "ref_id": session_ref,
+            "operator_name": operator_name,
+            "file_name": unique_file,
+            "execution_time": execution_time
+        }
+        save_audit_transaction(session_meta, engine_results)
+        audit_file_name=f"audit_report_{session_ref}.xlsx"
+        audit_file_path=os.path.join(website.config["OUTPUT_FOLDER"], audit_file_name)
 
-    generate_audit_report(engine_results, audit_file_path)
+        generate_audit_report(engine_results, audit_file_path)
 
-    return jsonify({
-        "status": "success",
-        "ref_id": session_ref,
-        "audit_data": engine_results,
-        "unique_file": unique_file,
-        "execution_time": execution_time
-    })
+        payload={
+            "status": "success",
+            "ref_id": session_ref,
+            "audit_data": engine_results,
+            "unique_file": unique_file,
+            "execution_time": execution_time
+        }
+
+        yield f"data: DONE: {json.dumps(payload)}\n\n"
+
+    response=Response(stream_with_context(generate_events()), content_type='text/event-stream')
+    response.headers['X-Accel-Buffering']='no'    
+    return response
+
+
 
 @website.route("/audit/history", methods=["GET"])
 def get_audit_history_logs():

@@ -645,11 +645,11 @@
     
   
 
-    document.getElementById("launchAutomationBtn").addEventListener("click", function(){
+    document.getElementById("launchAutomationBtn").addEventListener("click", async function(){
         
         const fileInput=document.getElementById("FileName");
         const staffInput=document.getElementById("StaffName");
-    
+        const promptInput=document.getElementById("commandprompt");
         
         const formData=new FormData();
         formData.append("file", fileInput.files[0]);
@@ -662,9 +662,33 @@
         const percentText=document.getElementById("progressPercentText");
 
         progressContainer.style.display="block";
-        fillBar.style.width="35%";
-        statusText.textContent="🚀 Uploading Excel workspace to ./uploads...";
-        percentText.textContent="35%";
+        
+
+        let pct=0;
+        let activeTimer=null;
+
+        const setPct=(target, text) => {
+            pct=Math.min(Math.max(target, pct), 100);
+            fillBar.style.width=pct+"%";
+            percentText.textContent=pct + "%";
+            if (text) statusText.textContent=text;
+        }
+
+
+
+        setPct(0, "🚀 Uploading Excel workspace to ./uploads...");
+        await new Promise(resolve => {
+            activeTimer=setInterval(() => {
+                if (pct<10) {
+                    setPct(pct+2);
+                }
+                else {
+                    clearInterval(activeTimer);
+                    resolve();
+                }
+            }, 500);
+
+        });
 
 
         fetch("/audit/run", {
@@ -672,18 +696,73 @@
             body: formData
         })
 
-        .then(response=>{
-            fillBar.style.width="70%";
-            statusText.textContent="⚙️ Connecting to SFC Portal & scraping PDF cross-metrics...";
-            percentText.textContent="70%";
-            return response.json();
+        .then(async response=>{
+
+            if (!response.ok) throw new Error("Network response error");
+            const reader=response.body.pipeThrough(new TextDecoderStream()).getReader()
+
+            let buffer="";
+            let finalJson=null;
+
+            clearInterval(activeTimer);
+
+            while (true) {
+                const {value, done}=await reader.read();
+                if (done) break;
+                buffer+=value;
+                const lines=buffer.split("\n\n");
+                buffer=lines.pop();
+
+                for (const line of lines) {
+                    if (!line.trim()) continue;
+                    const cleanMsg=line.replace(/^data:\s*/, "").trim();
+                    if (cleanMsg.startsWith("ERROR:")) {
+                        throw new Error(cleanMsg.replace("ERROR: ", ""))
+                    }
+                    else if (cleanMsg.startsWith("DONE:")) {
+                        finalJson=JSON.parse(cleanMsg.replace("DONE:", ""))
+                    }
+                    else {
+                        const match=cleanMsg.match(/Row\s*(\d+)\/(\d+)/);
+                        if (match) {
+                            const target=Math.round(10+(parseInt(match[1], 10)/parseInt(match[2], 10))*80);
+                            setPct(target,cleanMsg);
+                        }
+                    }
+                }
+            }
+
+            return finalJson;
         })
 
-        .then(data=>{
+        .then(async data=>{
+
+            if (!data) {
+                alert("Audit Engine Error: No data payload returned from server.");
+                document.getElementById("auditProgressContainer").style.display = "none";
+                document.getElementById("launchAutomationBtn").style.display = "inline-block";
+                return;
+            }
+
             if (data.status==="success"){
-                fillBar.style.width="100%";
-                statusText.textContent="🗄️ Stamping audit transaction ledger rows...";
-                percentText.textContent="100%";
+                
+                clearInterval(activeTimer);
+                setPct(90, "🗄️ Stamping audit transaction ledger rows...");
+                
+                await new Promise(resolve =>{
+                    
+                    activeTimer=setInterval(() => {
+                    if (pct<100){
+                        setPct(pct+2);
+                    }
+                    else{
+                        clearInterval(activeTimer);
+                        resolve();
+                    }
+                    }, 500);
+                });
+
+                
 
                 setTimeout(()=> {
 
@@ -720,7 +799,7 @@
                     fillBar.style.width="0%";
                     document.getElementById("launchAutomationBtn").style.display="inline-block";
 
-                }, 600);
+                }, 2000);
             }
             else {
                 alert("Audit Engine Error: " + data.message);
