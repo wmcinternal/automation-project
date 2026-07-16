@@ -528,6 +528,11 @@
     let tableNoticeShown=false
     function showCard(cardId){
 
+        const activemodel=document.getElementById("ref_id");
+        if (activemodel){
+            activemodel.remove();
+        }
+
         const cards=['cardIntro','cardProduct','cardHistory'];
 
 
@@ -577,6 +582,11 @@
     }
 
     function refresh(){
+
+        const activemodel=document.getElementById("ref_id");
+        if (activemodel){
+            activemodel.remove();
+        }
 
         showCard("cardIntro");
         document.getElementById("prodStep1").style.display="block";
@@ -949,15 +959,17 @@
 
         const model=document.createElement("div");
         model.id="ref_id";
-        model.style = "position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border: 2px solid #38bdf8; border-radius: 8px; z-index: 2001; box-shadow: 0 4px 15px rgba(0,0,0,0.2); font-family: sans-serif;";
+        model.style = "position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background:  #0a0a0a; padding: 20px; border: 2px solid #38bdf8; border-radius: 8px; z-index: 2001; box-shadow: 0 4px 15px rgba(0,0,0,0.2); font-family: sans-serif;";
 
 
         model.innerHTML=`
+
+                        <p style="margin-bottom: 40px; font-size: 22px; font-weight: bold; color: green; ">DOWNLOADS</p>
                         <p style="display: flex; justify-content: flex-end; color: #ef4444; cursor: pointer;" onclick="document.getElementById('ref_id').remove();">X</P>
-                        <a href="/audit/download/original/${ref_id}" download="original_file_${ref_id}.xlsx">original_file_${ref_id}.xlsx</a>
-                        <a href="/audit/download/audit/${ref_id}"  download="audit_report_${ref_id}.xlsx">audit_file_${ref_id}.xlsx</a>
-                        <a href="/audit/download/receipt/${ref_id}"  download="official_receipt_${ref_id}.xlsx">official_receipt_${ref_id}.xlsx</a>
-                        <a href="/audit/download/webscrap/${ref_id}" download="webscrap_source_${ref_id}.zip">webscrap_source_${ref_id}.zip</a>                        `
+                        <p><a href="/audit/download/original/${ref_id}" download="original_file_${ref_id}.xlsx" style="color: #a855f7;">original_file_${ref_id}.xlsx</a></p>
+                        <p><a href="/audit/download/audit/${ref_id}"  download="audit_report_${ref_id}.xlsx" style="color: #a855f7;">audit_file_${ref_id}.xlsx</a></p>
+                        <p><a href="/audit/download/receipt/${ref_id}"  download="official_receipt_${ref_id}.xlsx" style="color: #a855f7;">official_receipt_${ref_id}.xlsx</a></p>
+                        <p><a href="/audit/download/webscrap/${ref_id}" download="webscrap_source_${ref_id}.zip" style="color: #a855f7;">webscrap_source_${ref_id}.zip</a></p>                        `
                         
         document.body.appendChild(model);
 
