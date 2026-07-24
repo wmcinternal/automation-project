@@ -4,7 +4,7 @@
 
 <head>
         <title>Automation Webpage</title>
-        <link rel="icon" type="image/x-icon" href="/favicon.ico.jpeg">
+        <link rel="icon" type="image/x-icon" href="https://wmc.wmcubehk.com/2.29.4_042/WMC/cube_logo.png">
 
         <style>
 
@@ -235,7 +235,47 @@
             .table-container {
                 width: 100%;
                 overflow-x: auto;
+                margin-bottom: 15px;
+                scrollbar-width: thin;
+                scrollbar-color: #334155 #090d16;
+
             }
+
+            .table-container::-webkit-scrollbar {
+                height: 6px;
+            }
+
+            .table-container::-webkit-scrollbar-track {
+                background: #090d16;
+                border-radius: 4px;
+            }
+
+            .table-container::-webkit-scrollbar-thumb {
+                background: #334155; 
+                border-radius: 4px;
+            }
+
+            .pagination-container {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding-top: 15px;
+                border-top: 1px solid var(--border-line);
+            }
+
+            .pg-btn {
+                background: transparent;
+                color: #38bdf8;
+                border: 1px solid #38bdf8;
+                padding: 8px 18px;
+                border-radius: 6px;
+                font-size: 13px;
+                font-weight: 700;
+                cursor: pointer;
+                transition: all 0.2s ease-in-out;
+            }
+
+            
 
             .ledger-table {
                 border-collapse: collapse;
@@ -306,6 +346,54 @@
 
             }
 
+            .portal-field {
+                width: 100%;
+                max-width: 400px;
+                padding: 14px 18px;
+                box-sizing: border-box;
+                border-radius: 8px;
+                border: 1px solid #475569;
+                background: rgba(30, 41, 59, 0.2); 
+                color: var(--text-main); 
+                font-size: 14px;
+                transition: all 0.3s ease; 
+                position: relative;
+            }
+
+            input.portal-field:focus{
+                outline: none; 
+                border-color: #38bdf8; 
+                box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.3); 
+                background: rgba(30, 41, 59, 0.4);
+            }
+
+            div.portal-field:hover{
+                border-color: #38bdf8; background: rgba(56, 189, 248, 0.07); cursor: pointer;
+            }
+
+            .portal-field input[type="file"] {
+                position: absolute; 
+                top:0; 
+                left:0; 
+                width:100%; 
+                height:100%; 
+                opacity:0; 
+                cursor:pointer;
+            }
+
+            .receipt-row {
+                display: flex; 
+                justify-content: space-between; 
+                padding: 8px 0; 
+                border-bottom: 1px solid rgba(71, 85, 105, 0.3); 
+                cursor: default;
+            }
+            .receipt-value {
+                color: #f8fafc; 
+                font-family: monospace; 
+                font-weight: 500;
+            }
+
         </style>
 </head>
 
@@ -362,43 +450,72 @@
         <div id="cardProduct" class="dashboard-card" style="display: none;">
             
             <div id="prodStep1" style="display: block;">
-                <h2 style="text-align: left;margin-bottom: 20px; color: green; font-size: 22px;">Step 1: Data Intake</h2>
+                <h2 style="text-align: left;margin-bottom: 20px; color: green; font-size: 22px;">
+                    Step 1: Data Intake
+                </h2>
 
-                <div>
+                <div class="form-group">
                     <label style="color: var(--text-blue); font-weight: 600;">Operator Name</label>
-                    <input type="text" id="StaffName" placeholder="Enter your name">
+                    <input class="portal-field" type="text" id="StaffName" placeholder="Enter your name">
                 </div>
 
-                <div>
+                <div class="form-group">
                     <label style="color: var(--text-blue);font-weight: 600; margin-top: 20px;">Upload your file</label>
-                    <input type="file" id="FileName" placeholder="Only accept .xlsx" accept=".xlsx" style="color: var(--text-main)">
+                    
+                    <div class="portal-field" style="height: 52px; display: flex; align-items: center; padding-left: 18px; color: #94a3b8;">
+                        <span style="font-size: 16px; margin-right: 8px;">📁</span> 
+                        <span id="file-label-text">Drag file here or click to browse...</span>
+                        <input type="file" id="FileName" accept=".xlsx" style="position: absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer;" onchange="document.getElementById('file-label-text').innerText = this.files[0] ? this.files[0].name : 'Drag file here or click to browse...'; document.getElementById('file-label-text').style.color = '#38bdf8';">
+                    </div>
+                </div>    
+                    
+
+                <div class="ledger-hint-banner" style="margin-top: 20px; display: block; max-width: 400px; background: rgba(56, 189, 248, 0.08); border: rgba(56, 189, 248, 0.3); padding: 14px 18px; border-radius: 8px;">
+                    <a href="/template/download" download="template_golden.xlsx" style="color: #38bdf8; text-decoration: none; font-weight: 600; display: flex; align-items: center; gap: 8px;">📥Click here to download template_golden.xlsx</a>
                 </div>
 
-                <div style="display: block; background-color: #22c55e;">
-                    <a href="/template/download" download="template_golden.xlsx">📥Click here to download template_golden.xlsx</a>
-                </div>
-
-                <div style="color:#64748b; margin-top: 30px; display: flex;">
-                    <button id="Step1nextbutton" type="button">
+                <div class="form-group" style="color:#64748b; margin-top: 30px; display: flex;">
+                    <button class="portal-field" id="Step1nextbutton" type="button">
                         Proceed to Verification &rarr;
                     </button>
                 </div>
 
-                <div style="margin-top: 10px;">
-                    <input style="color: var(--canvas-bg);" id="cmdPrompt" type="text" placeholder="command prompt">
+                <div class="form-group" style="margin-top: 10px;">
+                    <input class="portal-field" color: var(--canvas-bg);" id="cmdPrompt" type="text" placeholder="command prompt">
                 </div>
 
             </div>
 
             <div id="prodStep2" style="display: none;">
-                <h2 style="color:#0284c7; margin-bottom: 20px; font-size: 20px;">Step 2: Review and Confirmation</h2>
-                <p>Please check if following info is correct.</p>
 
-                <p><strong>Operator Identity: </strong><span id="typedName">Proceeding...</span></p>
-                <p><strong>File Uploaded: </strong><span id="uploadedFile">Proceeding...</span></p>
+                <h2 style="color:#38bdf8; margin-bottom: 20px; font-size: 22px; font-weight: 700;">Step 2: Review and Confirmation</h2>
+                <p style="color: #94a3b8; font-size: 14px; margin-bottom: 25px;">Please check if following info is correct.</p>
 
-                <button id="launchAutomationBtn" type="button" style="margin-top: 20px; color: darkseagreen; font-weight: bold; cursor: pointer;">
-                    Launch Automation
+                <div>
+                    <label style="color: #38bdf8; font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 8px;">
+                        Operator Identity
+                    </label>
+
+                    <div class="portal-field" style="background: rgba(30, 41, 59, 0.25); color: #f8fafc; font-weight: 500; display: flex; align-items: center;">
+                        <span style="margin-right: 8px; opacity: 0.7;">👤</span> 
+                        <span id="typedName">s</span>
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: 20px;">
+                    <label style="color: #38bdf8; font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 8px;">
+                        File Uploaded
+                    </label>
+                    <div class="portal-field" style="background: rgba(30, 41, 59, 0.25); color: #f8fafc; font-weight: 500; display: flex; align-items: center;">
+                        <span style="margin-right: 8px; opacity: 0.7;">📄</span> 
+                        <span id="uploadedFile" style="font-family: monospace;">template_golden.xlsx</span>
+                    </div>
+                </div>
+            
+                
+            
+                <button id="launchAutomationBtn" type="button" style="background: linear-gradient(135deg, #0284c7, #0369a1); border: 1px solid #38bdf8; color: #ffffff; padding: 14px 32px; font-size: 15px; border-radius: 8px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 10px; box-shadow: 0 4px 12px rgba(56, 189, 248, 0.15); transition: all 0.2s ease;" onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 6px 16px rgba(56, 189, 248, 0.25)';" onmouseout="this.style.transform='none'; this.style.boxShadow='0 4px 12px rgba(56, 189, 248, 0.15)';">
+                    🚀 Launch Automation
                 </button>
 
                 <div id="auditProgressContainer" style="display: none; margin-top: 25px; background: #1e293b; padding: 20px; border-radius: 8px; border: 1px solid #334155;">
@@ -411,25 +528,40 @@
                         <div id="progressFillBar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #0ea5a9, #38bdf8); transition: width 0.4s ease;"></div>
                     </div>
 
-                </div>
+            </div>
 
             </div>
 
             <div id="prodStep3" style="display: none">
-                <h2 style="color:#38bdf8; font-weight: bold; margin-bottom: 30px;">Step 3: Receipt & Follow-up</h2>
+                <h2 style="color:#38bdf8; font-weight: bold; margin-bottom: 30px;">Step 3: Execution Ledger</h2>
 
-                <p><strong>Reference ID:</strong><span id="currentrefID"></span></p>
-                <p><strong>Time Stamp:</strong><span id="currenttimeStamp"></span></p>
-                <p><strong>File Name:</strong><span id="currentfileName"></span></p>
-                <p><strong>Staff Name:</strong><span id="currentstaffName"></span></p>
-                <p><strong>Execution Time:</strong><span id="currentexecutionTime"></span></p>
+                <p style="color: #94a3b8; font-size: 14px; margin-bottom: 25px;">
+                    Compliance check complete. The transaction ledger has been securely committed.
+                </p>
+                
 
-                <p><strong id="resultText"></strong></p>
+                <div style="display: flex; flex-direction: column; max-width: 400px; color: #38bdf8; font-size: 14px; font-weight: 600;">
 
+                    <label class="receipt-row">Reference ID:<span id="currentrefID"></span></label>
+                    <label class="receipt-row">Time Stamp:<span id="currenttimeStamp"></span></label>
+                    <label class="receipt-row">File Name:<span id="currentfileName"></span></label>
+                    <label class="receipt-row">Staff Name:<span id="currentstaffName"></span></label>
+                    <label class="receipt-row">Execution Time:<span id="currentexecutionTime"></span></label>
 
-                <button id="checkResultsBtn" type="button" onclick="showCard('cardHistory')" style="color: blue; padding: 20px 20px; cursor:pointer;">
-                    Check Results &rarr;
-                </button>
+                </div>
+
+                <div>
+                    <div id="resultText" style="color: #22c55e; font-size: 15px; font-weight: 600; display: inline-flex; align-items: center; gap: 8px;"></div>    
+                </div>
+
+                <div>
+                    <button id="checkResultsBtn" type="button" onclick="showCard('cardHistory')" 
+                        style="background: linear-gradient(135deg, #0284c7, #0369a1); border: 1px solid #38bdf8; color: #ffffff; padding: 14px 28px; font-size: 14px; border-radius: 8px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 12px rgba(56, 189, 248, 0.15); transition: all 0.2s ease;" 
+                        onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 6px 16px rgba(56, 189, 248, 0.25)';" 
+                        onmouseout="this.style.transform='none'; this.style.boxShadow='0 4px 12px rgba(56, 189, 248, 0.15)';">
+                        Check Results &rarr;
+                    </button>
+                </div>
 
             </div>
 
@@ -469,10 +601,10 @@
                 </table>
             </div>
 
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <button type="button" id="ledgerPrevBtn">&lt; Previous</button>
+            <div class="pagination-container">
+                    <button type="button" id="ledgerPrevBtn" class="pg-btn">&larr; Previous</button>
                     <span style="font-size: 15px; color: #64748b;" id="PageNumber">Loading...</span>
-                    <button type="button" id="ledgerNextBtn">Next &gt;</button>
+                    <button type="button" id="ledgerNextBtn" class="pg-btn">Next &rarr;</button>
             </div>
 
         </div>
@@ -491,7 +623,7 @@
     <footer class="global-footer">
         
         <div class="footer-left-logo">
-            <img src="/logo.png.jpeg" alt="WM Cube HK Logo" class="footer-logo-img">
+            <img src="https://wmc.wmcubehk.com/2.29.4_042/WMC/cube_logo.png" alt="WM Cube HK Logo" class="footer-logo-img">
         </div>
 
         <div class="footer-center-copyright">
@@ -509,7 +641,7 @@
         </div>
 
         <div class="footer-right-links">
-            <a href="https://mail.google.com/mail/?view=cm&fs=1&to=wilsonwong@wmcubehk.com&su=SFC%20Portal%20Support" target="_blank" class="footer-link">IT Support</a>
+            <a href="https://mail.google.com/mail/?view=cm&fs=1&to=intern@wmcubehk.com&cc=customerservice@ilkooscun.resend.app&su=SFC%20Portal%20Support" target="_blank" class="footer-link">IT Support</a>
             <a href="https://fintech-consult.com/fintech/wealth-management-cube#google_vignette" target="_blank" class="footer-link">About</a>
         </div>
     </footer>
@@ -518,6 +650,45 @@
 </body>
 
 <script>
+
+    async function handleSecureSignout(alertMsg, notifyBackend=true) {
+
+        sessionStorage.clear();
+
+        if (alertMsg) alert(alertMsg);
+
+        if (notifyBackend) {
+            window.location.replace("/auth/logout"); 
+        }
+        else {
+            window.location.replace("/homepage?tab_auth=false");
+        }
+
+    }
+
+    if (sessionStorage.getItem("user_is_authenticated") !== "true") {
+        handleSecureSignout("🔒 Access Denied: This tab is not authenticated.", false);
+    }
+
+    function refreshSessionTimer() {
+        if (sessionStorage.getItem("user_is_authenticated") === "true") {
+            sessionStorage.setItem("login_time", Date.now());
+        }
+    }    
+
+    ["mousemove", "keydown", "mousedown", "scroll"].forEach(eventType => {
+        document.addEventListener(eventType, refreshSessionTimer, {passive: true});
+    });
+
+
+    setInterval(() => {
+        let loginTime = sessionStorage.getItem("login_time");
+        if (loginTime) {
+            if (Date.now() - parseInt(loginTime) > 600000) { 
+                handleSecureSignout("⏰ Session Expired: 10-mins inactivity limit reached.", true);
+            }
+        }
+    }, 1000);
 
 
     document.getElementById("menuBtn").addEventListener("click", function(){
@@ -600,8 +771,6 @@
 
         document.getElementById("FileName").value="";
         document.getElementById("StaffName").value="";
-
-
     }
 
 
@@ -723,6 +892,8 @@
                 const lines=buffer.split("\n\n");
                 buffer=lines.pop();
 
+                refreshSessionTimer();
+
                 for (const line of lines) {
                     if (!line.trim()) continue;
                     const cleanMsg=line.replace(/^data:\s*/, "").trim();
@@ -786,8 +957,7 @@
                     document.getElementById("prodStep3").style.display = "block";
                     
                     let hasFailures=data.audit_data.some(function(row){
-                        return (row["Min Int Amt Check"] && row["Min Int Amt Check"].includes("🔴")) ||
-                               (row["Min Sub Amt Check"] && row["Min Sub Amt Check"].includes("🔴"));
+                        return Object.values(row).some(val=>typeof val==='string' && val.includes("🔴"));
                         });
 
                     if (hasFailures) {
@@ -957,6 +1127,9 @@
 
     function downloadInspectionPackage(ref_id) {
 
+        const ismodel=document.getElementById("ref_id");
+        if (ismodel) ismodel.remove();
+
         const model=document.createElement("div");
         model.id="ref_id";
         model.style = "position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background:  #0a0a0a; padding: 20px; border: 2px solid #38bdf8; border-radius: 8px; z-index: 2001; box-shadow: 0 4px 15px rgba(0,0,0,0.2); font-family: sans-serif;";
@@ -973,8 +1146,18 @@
                         
         document.body.appendChild(model);
 
-    }
+        setTimeout(() => {
 
+            document.addEventListener("click", function(event) {
+
+                if (!model.contains(event.target)) {
+                    model.remove();
+                } 
+            });
+
+        }, 0);
+        
+    }
 
 
 

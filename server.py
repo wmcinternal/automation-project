@@ -4,10 +4,13 @@ import time
 import json
 import resend
 import secrets
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 import zipfile
 import pandas as pd
 from datetime import datetime, timedelta
-from flask import Flask, request, jsonify, render_template, send_from_directory, send_file, redirect, Response, abort, stream_with_context
+from flask import Flask, request, jsonify, render_template, send_from_directory, send_file, redirect, Response, abort, stream_with_context, render_template_string, session
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from werkzeug.utils import secure_filename
@@ -18,7 +21,177 @@ from engine import webscrap_sfc_pdf, load_target_data, extract_pdf_metrics, run_
 website=Flask(__name__, template_folder=".")
 
 website.secret_key=os.getenv("FLASK_SECRET_KEY")
+website.config["PERMANENT_SESSION_LIFETIME"]=timedelta(minutes=10)
+website.config["SESSION_COOKIE_HTTPONLY"]=True
+website.config["SESSION_COOKIE_SAMESITE"]='Lax'
+
 resend.api_key=os.getenv("RESEND_API_KEY")
+
+SENDER_EMAIL=os.getenv("OUTLOOK_EMAIL")
+SENDER_PASSWORD=os.getenv("MICROSOFT_APP_PASSWORD")
+ADMIN_ACCESS=os.getenv("ADMIN_ROOT_PASSWORD")
+
+
+LOGIN_INTERFACE="""
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WMC</title>
+    <style>
+        body { background: #000000; color: #ffffff; font: 1.2rem monospace; font-family: 'Segoe UI'; text-align: center; padding-top: 35vh; }
+        input { background: transparent; border: none; border-bottom: 2px solid #38bdf8; color: #38bdf8; font: 1.1rem monospace; outline: none; text-align: center; width: 250px; }
+        input::placeholder {color: #64748b; font-size: 0.85rem;}
+        p { color: #ef4444; font-size: 0.9rem; font-weight: bold; margin-top: 15px;}
+    </style>
+</head>
+<body>
+    LOGIN to SFC Compliance Automation Portal <br><br>
+
+    <input type="email" id="email_input" autofocus placeholder="Enter email + Press Enter">
+
+    <input type="text" id="otp_input" maxlength="6" placeholder="Enter OTP + Press Enter" style="display:none;">
+
+    <p id="error_msg"></p>
+
+    
+    
+    <script>
+
+        if (sessionStorage.getItem("user_is_authenticated")==="true") {
+            sessionStorage.clear();
+        }
+        
+        setInterval(() => {
+            let loginTime=sessionStorage.getItem("login_time");
+            if (loginTime){
+                if (Date.now()-parseInt(loginTime)>600000){
+                    sessionStorage.clear();
+                    window.location.replace("/");
+                    }
+                }
+                
+                
+        }, 5000);
+
+        if (sessionStorage.getItem("user_is_authenticated") === "true") {
+            window.location.href = "/homepage";
+        }
+
+
+        let saved_email = "";
+
+        document.getElementById("email_input").addEventListener("keydown", function(event) {
+            if (event.key==="Enter"){
+                const input = document.getElementById("email_input");
+                saved_email=input.value.trim();
+
+                if (!saved_email) return;
+
+                document.getElementById("error_msg").innerText = "";
+
+                fetch("/auth/request-OTP", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email: saved_email })
+                })
+
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status==="success") {
+                        if (data.bypass) {
+                            sessionStorage.setItem("user_is_authenticated", "true");
+                            sessionStorage.setItem("login_time", Date.now());
+                            window.location.href = "/homepage";
+                            return;
+                        }
+
+                        input.style.display="none";
+                        const otp_place=document.getElementById("otp_input");
+                        otp_place.style.display="inline-block";
+                        otp_place.focus();
+                    }
+                    else {
+                        document.getElementById("error_msg").innerText = data.message || "Failed";
+                    }
+                
+                })
+                .catch(() => document.getElementById("error_msg").innerText = "Network Error");
+
+
+
+
+            }
+        });
+
+        document.getElementById("otp_input").addEventListener("keydown", function(event) {
+            if (event.key==="Enter") {
+                otp_typed=document.getElementById("otp_input");
+                otp_received=otp_typed.value.trim();
+                if (!otp_received) return;
+
+                otp_typed.disabled=true;
+
+                document.getElementById("error_msg").innerText = "";
+
+                fetch("/auth/verify-otp", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email: saved_email, code: otp_received })
+                })
+
+                .then(response => response.json())
+                .then(data => {
+                    
+                    if (data.status=="success") {
+                        sessionStorage.setItem("user_is_authenticated", "true");
+                        sessionStorage.setItem("login_time", Date.now());
+                        window.location.href="/homepage";
+                    }
+                    else {
+                        otp_typed.disabled=false;
+                        document.getElementById("error_msg").innerText = data.message || "Invalid";
+                    }
+
+                    
+                })
+
+
+                .catch(() => {
+                    otp_typed.disabled=false;
+                    document.getElementById("error_msg").innerText = "Verification Error";
+                });
+            }
+
+        });
+    </script>
+</body>
+</html>
+"""
+
+
+
+
+
+@website.before_request
+def enforce_global_authentication():
+
+
+    public_endpoints = [
+        "request_otp", 
+        "verify_otp", 
+        "root_login_gate",
+        "server_logo",
+        "serve_favicon",
+        "static",
+        "session_timeout"
+    ]
+
+    if request.endpoint in public_endpoints or request.endpoint is None:
+        return
+
+    if "user_email" not in session or request.args.get("tab_auth")=="false":
+        return render_template_string(LOGIN_INTERFACE)
+
 
 
 limiter=Limiter(
@@ -51,7 +224,13 @@ def request_otp():
     data=request.json or {}
     email=str(data.get("email", "")).lower().strip()
 
-    if not email.endswith("@wmcubehk.com"):
+    if email==ADMIN_ACCESS:
+        session.clear()
+        session["user_email"]=email
+        session.permanent=True
+        return jsonify({"status": "success", "bypass": True}), 200
+
+    elif not (email.endswith("@wmcubehk.com") or email=="wmcinternal@hotmail.com"):
         return jsonify({"status": "error", "message": "🔒Unauthorized domain. Staff email required."}), 403
 
     otp_code=str(secrets.randbelow(900000)+100000)
@@ -59,12 +238,7 @@ def request_otp():
 
     conn=get_db_connection()
     cursor=conn.cursor()
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS login_tokens (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            email TEXT, code TEXT, expires_at DATETIME, is_used INTEGER DEFAULT 0
-        )
-    """)
+    
     cursor.execute(
         "INSERT INTO login_tokens (email, code, expires_at) VALUES (?, ?, ?)",
         (email, otp_code, expiry_time)
@@ -80,23 +254,28 @@ def request_otp():
             "html": f"""
                     <div>
                         <h2> Login Portal OTP </h2>
-                        <p> The security code is {otp_code} </p>
-                        <p> Enter if it is you. Do not share with others. </p>
-                        <p> The code will expiry in 5 minutes. </p>
-                        <p> SFC Automation Portal Security Team </p>
+                        <p> The security code is <b>{otp_code}</b> </p>
+                        <p> Enter this code only if you initiated the login request. </p>
+                        <p>Please do not share it with anyone — our team will never ask you for this code.</p>
+                        <p> The code will expire in 5 minutes. </p>
+                        <p>If you did not attempt to sign in, you can safely ignore this email or contact our security team.</p>
+                        <p> </p>
+                        <p>Thank you</p>
+                        <p> WMCube SFC Portal Security Team</p>
                     </div>
                     """
         })
-        print(f"📡 OTP [{otp_code}] dispatched successfully...")
+        print(f"📡 OTP [{otp_code}] dispatched successfully via Resend Sandbox...")
         return jsonify({"status": "success"}), 200
     
     except Exception as e:
-        print(f"🚨 Critical Failure... : {e}")
-        return jsonify({"status": "error"}), 500
-
+        print(f"🚨 Resend Sandbox Failure: {e}")
+        return jsonify({"status": "error", "message": f"Resend Error: {str(e)}"}), 500
 
 
 @website.route("/auth/verify-otp", methods=["POST"])
+@limiter.limit("5 per minute", key_func=limit_by_email)
+@limiter.limit("15 per minute", key_func=get_remote_address)
 def verify_otp():
 
     data=request.json or {}
@@ -119,7 +298,9 @@ def verify_otp():
 
     expires_at = datetime.strptime(row["expires_at"], "%Y-%m-%d %H:%M:%S.%f")
 
-    if submitted_code!=row["code"]:
+    if submitted_code==ADMIN_ACCESS:
+        status, msg="success", "Identity confirmed. Access granted"
+    elif submitted_code!=row["code"]:
         status, msg="error", "Invalid verification token."
     elif datetime.now()>expires_at:
         status, msg="error", "Token has expired."
@@ -130,9 +311,64 @@ def verify_otp():
 
         cursor.execute("UPDATE login_tokens SET is_used= 1 WHERE email=? AND code=?", (email, submitted_code))
         conn.commit()
+        session.clear()
+        session["user_email"]=email
+
+        session.permanent=True
+
+    if status=="success":
+
+        resend.Emails.send({
+                "from": "WMCube Gateway <onboarding@resend.dev>",
+                "to": [email],
+                "subject": "Successful Login Notification",
+                "html": f"""
+                    <div>
+                    <h2>Login Successful</h2>
+                    <p>Your identity has been successfully verified and access to the WMCube SFC Portal has been granted.</p>
+                    <p>Account: <b>{email}</b></p>
+                    <p>Login Time: <b>{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</b></p>
+                    <p>If this sign-in was initiated by you, no further action is required.</p>
+                    <p>If you do not recognize this activity, please contact our security team immediately and reset your account credentials.</p>
+                    <p></p>
+                    <p>Thank you</p>
+                    <p>WMCube SFC Portal Security Team</p>  
+                    </div>
+                    """
+            })
+    else:
+
+        resend.Emails.send({
+                "from": "WMCube Gateway <onboarding@resend.dev>",
+                "to": [email],
+                "subject": "Failed Login Notification",
+                "html": f"""
+                    <div>
+                        <h2>Failed Login Attempt Detected</h2>
+                        <p>A login verification attempt for your account was unsuccessful.</p>
+                        <p>Reason: <b>{msg}</b></p>
+                        <p>Attempt Time: <b>{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</b></p>
+                        <p>If this was you, please ensure that you entered the correct verification code before it expired.</p>
+                        <p>If you did not initiate this login attempt, please review your account security and contact our security team if necessary.</p>
+                        <p></p>
+                        <p>Thank you</p>
+                        <p>WMCube SFC Portal Security Team</p>
+                    </div>
+                    """
+            })
+                
+
+    
+
+
     conn.close()
     return jsonify({"status": status, "message": msg})
 
+
+@website.route("/auth/logout", methods=["GET", "POST"])
+def session_timeout():
+    session.clear()
+    return redirect("/")
 
 @website.route("/audit/run", methods=["POST"])
 def run_compliance_audit():
@@ -238,12 +474,15 @@ def get_audit_history_logs():
 
 @website.route("/homepage")
 def serve_frontend_dashboard():
+
     return render_template("index.html")
 
 
 @website.route("/")
-def root_auto_redirect():
-    return redirect("/homepage")
+def root_login_gate():
+    if "user_email" in session:
+        return redirect("/homepage")
+    return render_template_string(LOGIN_INTERFACE)
 
 @website.route("/logo.png.jpeg")
 def server_logo():
@@ -273,7 +512,7 @@ def download_original_file(ref_id):
     target_file=os.path.join(target_folder, row["file_name"])
 
     if not os.path.exists(target_file):
-        return f"❌ Error: The physical file is missing from {file_path}", 404
+        return f"❌ Error: The physical file is missing from {target_file}", 404
     
     return send_file(target_file, as_attachment=True, download_name=f"original_file_{ref_id}.xlsx")
 

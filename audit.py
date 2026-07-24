@@ -41,6 +41,16 @@ def init_db():
         )
     """)
 
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS login_tokens (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT,
+            code TEXT,
+            expires_at TEXT,
+            is_used INTEGER DEFAULT 0
+        )
+    """)
+
     conn.commit()
     conn.close()
     print("🗄️ Relational SQLite storage matrix initialized completely.")
@@ -54,11 +64,7 @@ def save_audit_transaction(session_meta: dict, engine_results_list: list):
 
     overall_status="Pass"
     for engine_result in engine_results_list:
-        if (
-            "🔴" in str(engine_result.get("Min Int Amt Check", "")) or
-            "🔴" in str(engine_result.get("Min Sub Amt Check", ""))
-                
-        ):
+        if any("🔴" in str(val) for val in engine_result.values()):
             overall_status="Fail"
             break
 

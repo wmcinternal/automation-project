@@ -9,6 +9,9 @@ import pandas as pd
 from rapidfuzz import fuzz
 import pdfplumber
 
+STOP_PHRASES=["not offered", "not available", "no longer offered", "n/a", "none", "nil", "not permitted"]
+    
+
 print("\n🚀 Booting up Solid Backend MVP (Read -> Compare -> Write Mode)...\n")
 
 def webscrap_sfc_pdf(ce_number, folder="./webscrap"):
@@ -88,12 +91,224 @@ def load_target_data(excel_path):
         exit()
 
 
+def extract_dealing_frequency(pdf):
+                
+    for page in pdf.pages:
+        page_text=page.extract_text() or ""
+        if page_text:
+            freq_match = re.search(
+                r"(?:dealing\s*frequency|dealing\s*day)s?(?:[/\s|]*dealing\s*day)?[\s:|]*([^\n\r.]+)",
+                page_text, 
+                re.IGNORECASE
+            )
+            if freq_match:
+                raw_val = freq_match.group(1).strip()
+                clean_freq = re.sub(r'[¹²³⁴⁵⁶⁷⁸⁹⁰#*†‡^]', '', raw_val).strip()
+                clean_freq = clean_freq.strip(':| ').strip()
+                if clean_freq:
+                    return clean_freq
+
+    return "NOT FOUND"
+
+
+def extract_borderless_window_amount(pdf, search_currencies, share_class_target):
+    
+    ccy_pattern = "|".join(search_currencies)
+    
+    for page in pdf.pages:
+        page_text = page.extract_text() or ""
+        if not page_text:
+            continue
+
+        lines = [line.strip() for line in page_text.split('\n') if line.strip()]
+
+        for idx, line in enumerate(lines):
+            line_lower = line.lower()
+
+            if any(k in line_lower for k in ["min. investment", "minimum investment", "minimum subscription", "initial investment"]):
+        
+                window_lines = lines[idx : min(idx + 12, len(lines))]
+                window_text = "\n".join(window_lines)
+
+                class_match = re.search(
+                    rf"\bclass\s*{share_class_target}\b|\b{share_class_target}\b", 
+                    window_text, 
+                    re.IGNORECASE
+                )
+
+                if class_match:
+                    if any(sp in window_text.lower() for sp in STOP_PHRASES):
+                        return 0.0, 0.0
+
+                    amounts = re.findall(rf"(?:{ccy_pattern}|\$)\s*([\d,]+(?:\.\d+)?)", window_text, re.IGNORECASE)
+
+                    if amounts:
+                        clean_nums = [float(a.replace(',', '')) for a in amounts]
+                        v_init = clean_nums[0]
+                        v_sub = clean_nums[1] if len(clean_nums) > 1 else clean_nums[0]
+                        return v_init, v_sub
+
+    return 0.0, 0.0
+
+def parse_amount(text, search_candidates):
+
+    cleaned_text = text.lower().strip()
+    if any(phrase in cleaned_text for phrase in STOP_PHRASES):
+        return 0.0
+    
+    active_ccy = None
+    for ccy in search_candidates:
+        if ccy in cleaned_text:
+            active_ccy = ccy
+            break
+    
+    if not active_ccy and "usd" in cleaned_text:
+        active_ccy = "usd"
+        
+    if not active_ccy:
+        return 0.0
+        
+    match = re.search(rf"{active_ccy}[ \t]*([\d,.]+)[ \t]*(million|m)?", cleaned_text)
+    if match:
+        val = float(match.group(1).replace(',', ''))
+        if match.group(2): 
+            val *= 1000000 
+        return val
+    return 0.0
+
+
+def extract_subscription_amount(pdf, search_currencies, share_class_target):
+
+    class_pattern = rf"\bclass(?:es)?\b.*?\b{share_class_target}\b"
+    section_break_keywords = [
+        "ongoing charge", "what is this product", "quick facts", 
+        "objectives and investment", "dividend policy", "management company"
+    ]
+
+    for page in pdf.pages:    
+        tables = page.extract_tables() or []
+                
+        for table in tables:
+            if not table or len(table[0]) < 2:
+                continue
+                        
+            in_investment_section = False
+            col_idx_initial = 1  
+            col_idx_additional = 2
+                    
+            in_target_class_block = False
+            block_initial_text = ""
+            block_additional_text = ""
+
+            for row_idx, row in enumerate(table):        
+                clean_row = [str(cell).lower().replace('\n', ' ').strip() if cell else "" for cell in row]
+                if in_investment_section:
+                    row_text_combined = " ".join(clean_row)
+                    if any(k in row_text_combined for k in section_break_keywords):
+                        in_investment_section = False
+                        break
+
+                is_section_header = any(
+                    k in cell for cell in clean_row for k in ["min. invest", "minimum invest", "min. investment", "minimum subcription amount", "minimum subsequent subscription amount", "minimum investment"]
+                )
+                        
+                if is_section_header:
+                    in_investment_section = True
+                            
+                    for i, cell in enumerate(clean_row):
+                        if "initial" in cell or "minimum subscription amount" in cell:
+                            col_idx_initial = i
+
+                        elif "additional" in cell or "subsequent" in cell:
+                            col_idx_additional = i
+                                    
+                    if row_idx + 1 < len(table):
+                        next_row = [str(cell).lower().replace('\n', ' ').strip() if cell else "" for cell in table[row_idx + 1]]
+                        for i, cell in enumerate(next_row):
+                            if "initial" in cell or "minimum subsequent subcription amount" in cell:
+                                col_idx_initial = i
+                            elif "additional" in cell or "subsequent" in cell:
+                                col_idx_additional = i
+                    continue
+
+                if in_investment_section:
+                    cell_0 = clean_row[0] if len(clean_row) > 0 else ""
+                    cell_initial = clean_row[col_idx_initial] if len(clean_row) > col_idx_initial else ""
+                    cell_additional = clean_row[col_idx_additional] if len(clean_row) > col_idx_additional else ""
+                    
+                    if cell_0.strip() and not cell_initial.strip() and not cell_additional.strip():
+                        continue
+
+                    if cell_0.strip():
+                        if in_target_class_block:
+                            break
+
+                        if re.search(class_pattern, cell_0):
+                            in_target_class_block = True
+                            block_initial_text = cell_initial
+                            block_additional_text = cell_additional
+                    else:
+                        if in_target_class_block:
+                            if cell_initial.strip():
+                                block_initial_text += " " + cell_initial
+                            if cell_additional.strip():
+                                block_additional_text += " " + cell_additional
+
+            if in_target_class_block:
+                min_int=parse_amount(block_initial_text, search_currencies)
+                min_sub=parse_amount(block_additional_text, search_currencies)
+            
+                if min_int > 0 or min_sub > 0:
+                    return min_int, min_sub
+
+
+    ccy_pattern = "|".join(search_currencies)
+    for page in pdf.pages:
+        page_text = page.extract_text() or ""
+        if not page_text:
+            continue
+            
+        lines = page_text.split('\n')
+        in_text_section=False
+
+        for line in lines:
+            line_lower = line.lower().strip()
+
+            if any(k in line_lower for k in ["min. investment", "minimum investment", "minimum subscription", "min. sub"]):
+                in_text_section = True
+                continue
+
+            if in_text_section:
+                class_match = re.search(rf"\bclass\s*{share_class_target}\b|\bclass\b.*?\b{share_class_target}\b|\b{share_class_target}\b", line_lower)
+                if class_match:
+                        
+                    if any(phrase in line_lower for phrase in STOP_PHRASES):
+                        return 0.0, 0.0
+
+                    amounts = re.findall(rf"(?:{ccy_pattern})\s*[\d,.]+", line_lower, re.IGNORECASE)
+                    if amounts:
+                        def clean_val(amt_str):
+                            m = re.search(r"[\d,.]+", amt_str)
+                            return float(m.group(0).replace(',', '')) if m else 0.0
+                            
+                        min_int=clean_val(amounts[0])
+                        min_sub=clean_val(amounts[1]) if len(amounts) > 1 else clean_val(amounts[0])
+                        return min_int, min_sub
+    
+    return 0.0, 0.0
+
 
 def extract_pdf_metrics(matched_pdf, target_currency, target_fund, folder="."):
-    engine_data = {"Company": "NOT FOUND", "Min Int Amt": 0.0, "Min Sub Amt": 0.0}
+    engine_data = {
+        "Company": "NOT FOUND", 
+        "Min Int Amt": 0.0, 
+        "Min Sub Amt": 0.0, 
+        "Dealing Freq": "NOT FOUND"
+    }
 
     if not matched_pdf:
         return engine_data
+
 
     target_lower = target_currency.lower().strip()
     if target_lower in ["cny", "rmb", "cnh"]:
@@ -107,7 +322,6 @@ def extract_pdf_metrics(matched_pdf, target_currency, target_fund, folder="."):
     
     share_class_target = "a"  
     class_prefixes = ('a', 'b', 'c', 'i', 'w', 's')
-    
     distribution_suffixes = ["acc", "dis", "inc", "dec", "mdist", "hedged", "h", "hdg"]
 
     for token in tokens:
@@ -117,138 +331,22 @@ def extract_pdf_metrics(matched_pdf, target_currency, target_fund, folder="."):
             share_class_target = token
             break
 
-    class_pattern = rf"\bclass(?:es)?\b.*?\b{share_class_target}\b"
-    stop_phrases = ["not offered", "not available", "no longer offered", "n/a", "none", "nil", "not permitted"]
-    
-    section_break_keywords = [
-        "ongoing charge", "what is this product", "quick facts", 
-        "objectives and investment", "dividend policy", "management company"
-    ]
 
     try:
         with pdfplumber.open(os.path.join(folder, matched_pdf)) as pdf:
+
+            engine_data["Dealing Freq"]=extract_dealing_frequency(pdf);
+            min_int, min_sub=extract_subscription_amount(pdf, search_currencies, share_class_target )
+
+            if min_int==0.0 and min_sub==0.0:
+                min_int, min_sub=extract_borderless_window_amount(pdf, search_currencies, share_class_target);
             
-            for page in pdf.pages:
-                tables = page.extract_tables()
-                
-                for table in tables:
-                    if not table or len(table[0]) < 2:  # Table must have structured column properties
-                        continue
-                        
-                    in_investment_section = False
-                    col_idx_initial = 1  
-                    col_idx_additional = 2
-                    
-                    in_target_class_block = False
-                    block_initial_text = ""
-                    block_additional_text = ""
-
-                    for row_idx, row in enumerate(table):
-                        
-                        clean_row = [str(cell).lower().replace('\n', ' ').strip() if cell else "" for cell in row]
-                        
-                        if in_investment_section:
-                            row_text_combined = " ".join(clean_row)
-                            if any(k in row_text_combined for k in section_break_keywords):
-                                in_investment_section = False
-                                break
-
-                        is_section_header = any("min. invest" in cell or "minimum invest" in cell for cell in clean_row)
-                        
-                        if is_section_header:
-                            in_investment_section = True
-                            
-                            for i, cell in enumerate(clean_row):
-                                if "initial" in cell:
-                                    col_idx_initial = i
-                                elif "additional" in cell or "subsequent" in cell:
-                                    col_idx_additional = i
-                                    
-                            if row_idx + 1 < len(table):
-                                next_row = [str(cell).lower().replace('\n', ' ').strip() if cell else "" for cell in table[row_idx + 1]]
-                                for i, cell in enumerate(next_row):
-                                    if "initial" in cell:
-                                        col_idx_initial = i
-                                    elif "additional" in cell or "subsequent" in cell:
-                                        col_idx_additional = i
-                            continue  
-
-                        if in_investment_section:
-                            cell_0 = clean_row[0] if len(clean_row) > 0 else ""
-                            cell_initial = clean_row[col_idx_initial] if len(clean_row) > col_idx_initial else ""
-                            cell_additional = clean_row[col_idx_additional] if len(clean_row) > col_idx_additional else ""
-                            
-                            if cell_0.strip() and not cell_initial.strip() and not cell_additional.strip():
-                                continue
-
-                            if cell_0.strip():
-                                if in_target_class_block:
-                                    break  # Hit a new category tracking line, exit processing
-                                
-                                if re.search(class_pattern, cell_0):
-                                    in_target_class_block = True
-                                    block_initial_text = cell_initial
-                                    block_additional_text = cell_additional
-                            else:
-                                if in_target_class_block:
-                                    if cell_initial.strip():
-                                        block_initial_text += " " + cell_initial
-                                    if cell_additional.strip():
-                                        block_additional_text += " " + cell_additional
-
-                    if in_target_class_block:
-                        def parse_amount(text, search_candidates):
-                            cleaned_text = text.lower().strip()
-                            if any(phrase in cleaned_text for phrase in stop_phrases):
-                                return 0.0
-                            
-                            active_ccy = None
-                            for ccy in search_candidates:
-                                if ccy in cleaned_text:
-                                    active_ccy = ccy
-                                    break
-                            
-                            if not active_ccy and "usd" in cleaned_text:
-                                active_ccy = "usd"
-                                
-                            if not active_ccy:
-                                return 0.0
-                                
-                            match = re.search(rf"{active_ccy}[ \t]*([\d,.]+)[ \t]*(million|m)?", cleaned_text)
-                            if match:
-                                val = float(match.group(1).replace(',', ''))
-                                if match.group(2): 
-                                    val *= 1000000 
-                                return val
-                            return 0.0
-
-                        engine_data["Min Int Amt"] = parse_amount(block_initial_text, search_currencies)
-                        engine_data["Min Sub Amt"] = parse_amount(block_additional_text, search_currencies)
-                        return engine_data
-
-            for page in pdf.pages:
-                page_text = page.extract_text()
-                if not page_text:
-                    continue
-                    
-                lines = page_text.split('\n')
-                for line in lines:
-                    line_lower = line.lower().strip()
-                    
-                    if "minimum investment" in line_lower or "min. investment" in line_lower:
-                        if any(phrase in line_lower for phrase in stop_phrases) or " 0 " in line_lower or line_lower.endswith(" 0"):
-                            engine_data["Min Int Amt"] = 0.0
-                            engine_data["Min Sub Amt"] = 0.0
-                            return engine_data
-                            
-                    if f"class {share_class_target}" in line_lower or f"classes {share_class_target}" in line_lower:
-                        if any(phrase in line_lower for phrase in stop_phrases):
-                            engine_data["Min Int Amt"] = 0.0
-                            engine_data["Min Sub Amt"] = 0.0
-                            return engine_data
+            engine_data["Min Int Amt"] = min_int
+            engine_data["Min Sub Amt"] = min_sub
 
     except Exception as e:
         print(f"⚠️ Error scraping table details from {matched_pdf}: {e}")
+
 
     return engine_data
 
@@ -263,6 +361,13 @@ def run_audit_comparison(staff_row, engine_data, matched_pdf):
     currency_target = str(staff_row.get("Fund Currency", "")).upper()
     staff_amt = float(staff_row.get("Min Int Amt (Fund Ccy)", 0.0))
     sub_amt=float(staff_row.get("Min Sub Amt (Fund Ccy)", 0.0))
+    
+    raw_freq = staff_row.get("Dealing Freq.", staff_row.get("Dealing Freq", staff_row.get("Dealing Frequency", "")))
+    if pd.isna(raw_freq) or str(raw_freq).strip().lower() in ["nan", "none", ""]:
+        staff_freq = ""
+    else:
+        staff_freq = str(raw_freq).strip().lower()
+
 
     if pd.isna(ce_number) or str(ce_number).strip()=="":
         return {
@@ -270,7 +375,9 @@ def run_audit_comparison(staff_row, engine_data, matched_pdf):
             "Management Company": "⚪ BLANK ROW",
             "Target Fund": fund_name_target,
             "Currency": currency_target.upper(),
-            "Min Int Amt Check": "⚪ BLANK ROW"
+            "Min Int Amt Check": "⚪ BLANK ROW",
+            "Min Sub Amt Check": "⚪ BLANK ROW",
+            "Dealing Freq Check": "⚪ BLANK ROW"
         }
 
 
@@ -290,13 +397,21 @@ def run_audit_comparison(staff_row, engine_data, matched_pdf):
         sub_status = f"🔴 FAIL (Excel: {sub_amt} | PDF: {engine_data['Min Sub Amt']})"
 
 
+    pdf_freq = str(engine_data.get("Dealing Freq", "NOT FOUND")).strip().lower()
+    if staff_freq and pdf_freq!= "not found" and staff_freq in pdf_freq:
+        freq_status = "🟢 MATCH"
+    else:
+        freq_status = f"🔴 FAIL (Excel: {staff_freq if staff_freq else 'N/A'} | PDF: {pdf_freq})"
+
     return {
         "Matched PDF": matched_pdf,
         "Management Company": house_status,
         "Target Fund": fund_name_target,
         "Currency": currency_target,
         "Min Int Amt Check": amt_status,
-        "Min Sub Amt Check": sub_status
+        "Min Sub Amt Check": sub_status,
+        "Dealing Freq Check": freq_status
+
     }
 
 
@@ -356,7 +471,8 @@ if __name__ == "__main__":
                 "Target Fund": fund_raw,
                 "Currency": ccy_target.upper(),
                 "Min Int Amt Check": "💥 SCRAPER EXCEPTION",
-                "Min Sub Amt Check": "💥 SCRAPER EXCEPTION"
+                "Min Sub Amt Check": "💥 SCRAPER EXCEPTION", 
+                "Dealing Freq Check": "💥 SCRAPER EXCEPTION"
             })
 
     
