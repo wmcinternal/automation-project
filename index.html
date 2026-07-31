@@ -329,7 +329,7 @@
                 transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             }
 
-            .to_inspect:hover {
+            .to-inspect:hover {
                 background: #38bdf8;
                 color: #000000;
                 transform: translateY(-2px);
@@ -392,6 +392,69 @@
                 color: #f8fafc; 
                 font-family: monospace; 
                 font-weight: 500;
+            }
+
+            #customAlertModal {
+                margin: auto;
+                border: 1px solid #38bdf8;
+                background: var(--card-bg);
+                color: var(--text-main);
+                border-radius: 12px;
+                padding: 25px;
+                box-shadow: 0 0 25px rgba(56, 189, 248, 0.25);
+                max-width: 420px;
+                width: 90%;
+            }
+
+            #customAlertModal::backdrop {
+                background: rgba(0, 0, 0, 0.7);
+                backdrop-filter: blur(3px);
+            }
+
+            .modal-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 15px;
+            }
+
+            #alertModalTitle {
+                margin: 0;
+                color: #38bdf8;
+                font-size: 18px;
+                font-weight: 700;
+            }
+
+            .modal-header button {
+                background: none;
+                border: none;
+                color: #ef4444;
+                font-size: 20px;
+                cursor: pointer;
+                font-weight: bold;
+                line-height: 1;
+            }
+
+            #alertModalMessage {
+                font-size: 14px;
+                color: var(--text-main);
+                line-height: 1.5;
+                margin-bottom: 20px;
+            }
+
+            .modal-actions {
+                display: flex;
+                justify-content: flex-end;
+            }
+
+            .modal-actions button {
+                background: linear-gradient(135deg, #0ea5a9, #0284c7);
+                border: none;
+                color: #ffffff;
+                padding: 10px 24px;
+                border-radius: 6px;
+                font-weight: 700;
+                cursor: pointer;
             }
 
         </style>
@@ -646,16 +709,40 @@
         </div>
     </footer>
 
+    <!-- Native App-Wide Alert Dialog -->
+    <dialog id="customAlertModal">
+        <div class="modal-header">
+            <h3 id="alertModalTitle">Notification</h3>
+            <button onclick="document.getElementById('customAlertModal').close()">✕</button>
+    </div>
+    <div id="alertModalMessage"></div>
+    <div class="modal-actions">
+        <button onclick="document.getElementById('customAlertModal').close()">OK</button>
+    </div>
+</dialog>
+
 
 </body>
 
 <script>
 
+    function showNativeAlert(title, message, isError = false) {
+        const modal = document.getElementById("customAlertModal");
+        const titleEl = document.getElementById("alertModalTitle");
+        const messageEl = document.getElementById("alertModalMessage");
+
+        titleEl.textContent = title;
+        titleEl.style.color = isError ? "#ef4444" : "#38bdf8";
+        messageEl.textContent = message;
+
+        modal.showModal();
+    }
+
     async function handleSecureSignout(alertMsg, notifyBackend=true) {
 
         sessionStorage.clear();
 
-        if (alertMsg) alert(alertMsg);
+        if (alertMsg) showNativeAlert("🔒 Access Control", alertMsg, true);
 
         if (notifyBackend) {
             window.location.replace("/auth/logout"); 
@@ -684,7 +771,7 @@
     setInterval(() => {
         let loginTime = sessionStorage.getItem("login_time");
         if (loginTime) {
-            if (Date.now() - parseInt(loginTime) > 600000) { 
+            if (Date.now() - parseInt(loginTime) > 60000000) { 
                 handleSecureSignout("⏰ Session Expired: 10-mins inactivity limit reached.", true);
             }
         }
@@ -801,13 +888,13 @@
 
         
         if (staffNameInput.value.trim()===""){
-            alert("🔒 Compliance Security Block: You must enter your Operator Name to sign this audit transaction!");
+            showNativeAlert("🔒 Compliance Security Block: You must enter your Operator Name to sign this audit transaction!");
             staffNameInput.focus();
             return;
         }
 
         if (!isbypass && !fileInput.files[0]) {
-            alert("🔒 File Intake Block: Please select your internal workspace Excel spreadsheet (.xlsx) to proceed!");
+            showNativeAlert("🔒 File Intake Block: Please select your internal workspace Excel spreadsheet (.xlsx) to proceed!");
             return;
         }
         
@@ -919,7 +1006,7 @@
         .then(async data=>{
 
             if (!data) {
-                alert("Audit Engine Error: No data payload returned from server.");
+                showNativeAlert("Audit Engine Error", "No data payload returned from server.", true);
                 document.getElementById("auditProgressContainer").style.display = "none";
                 document.getElementById("launchAutomationBtn").style.display = "inline-block";
                 return;
@@ -982,7 +1069,7 @@
                 }, 2000);
             }
             else {
-                alert("Audit Engine Error: " + data.message);
+                showNativeAlert("Audit Engine Error", data.message, true);
                 document.getElementById("auditProgressContainer").style.display = "none";
                 document.getElementById("launchAutomationBtn").style.display = "inline-block";
 
@@ -990,7 +1077,7 @@
         })
         .catch(error=>{
             console.error("Pipeline failure:", error);
-            alert("Server connection failed.");
+            showNativeAlert("Pipeline Failure", "Server connection failed.", true);
             document.getElementById("auditProgressContainer").style.display = "none";
             document.getElementById("launchAutomationBtn").style.display = "inline-block";
 
