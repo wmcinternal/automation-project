@@ -21,7 +21,7 @@ from engine import webscrap_sfc_pdf, load_target_data, extract_pdf_metrics, run_
 website=Flask(__name__, template_folder=".")
 
 website.secret_key=os.getenv("FLASK_SECRET_KEY")
-website.config["PERMANENT_SESSION_LIFETIME"]=timedelta(minutes=10)
+website.config["PERMANENT_SESSION_LIFETIME"]=timedelta(hours=1)
 website.config["SESSION_COOKIE_HTTPONLY"]=True
 website.config["SESSION_COOKIE_SAMESITE"]='Lax'
 
@@ -42,6 +42,35 @@ LOGIN_INTERFACE="""
         input { background: transparent; border: none; border-bottom: 2px solid #38bdf8; color: #38bdf8; font: 1.1rem monospace; outline: none; text-align: center; width: 250px; }
         input::placeholder {color: #64748b; font-size: 0.85rem;}
         p { color: #ef4444; font-size: 0.9rem; font-weight: bold; margin-top: 15px;}
+
+        #otp_container {
+            display: none;
+            justify-content: center;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .otp-box {
+            width: 45px !important;
+            height: 55px;
+            font-size: 1.5rem !important;
+            font-weight: bold;
+            text-align: center;
+            border: 2px solid #38bdf8 !important;
+            border-radius: 8px;
+            background: rgba(30, 41, 59, 0.5) !important;
+            color: #38bdf8 !important;
+            outline: none;
+            transition: all 0.2s ease-in-out;
+        }
+
+        .otp-box:focus {
+            border-color: #0284c7 !important;
+            box-shadow: 0 0 12px rgba(56, 189, 248, 0.6);
+            background: rgba(56, 189, 248, 0.15) !important;
+            transform: scale(1.05);
+        }
+
     </style>
 </head>
 <body>
@@ -49,13 +78,61 @@ LOGIN_INTERFACE="""
 
     <input type="email" id="email_input" autofocus placeholder="Enter email + Press Enter">
 
-    <input type="text" id="otp_input" maxlength="6" placeholder="Enter OTP + Press Enter" style="display:none;">
+    <div id="otp_container" style="display:none;">
+        <input type="text" class="otp-box" maxlength="1" pattern="\\d*">
+        <input type="text" class="otp-box" maxlength="1" pattern="\\d*">
+        <input type="text" class="otp-box" maxlength="1" pattern="\\d*">
+        <input type="text" class="otp-box" maxlength="1" pattern="\\d*">
+        <input type="text" class="otp-box" maxlength="1" pattern="\\d*">
+        <input type="text" class="otp-box" maxlength="1" pattern="\\d*">
+    </div>
 
     <p id="error_msg"></p>
 
     
     
     <script>
+
+        const otpBoxes=document.querySelectorAll('.otp-box');
+
+        otpBoxes.forEach((box, index) => {
+            box.addEventListener('input', () => {
+                box.value = box.value.replace(/[^0-9]/g, '');
+                if (box.value && index < otpBoxes.length - 1) {
+                    otpBoxes[index + 1].focus();
+                }
+                checkAndSubmitOTP();
+            });
+
+            box.addEventListener('keydown', (event) => {
+                if (event.key === 'Backspace' && !box.value && index > 0) {
+                    otpBoxes[index - 1].focus();
+                }
+            });
+        });
+
+        document.getElementById('otp_container').addEventListener('paste', (event) => {
+            event.preventDefault();
+            const pastedData = event.clipboardData.getData('text').trim().replace(/[^0-9]/g, '');
+            if (pastedData.length === 6) {
+                otpBoxes.forEach((box, i) => {
+                    box.value = pastedData[i] || '';
+                });
+                otpBoxes[5].focus();
+                checkAndSubmitOTP();
+            }
+        });
+
+
+        function checkAndSubmitOTP() {
+            let fullCode = '';
+            otpBoxes.forEach((box) => fullCode += box.value);
+            if (fullCode.length === 6) {
+                verifyOTP(fullCode);
+            }
+        }
+
+
 
         if (sessionStorage.getItem("user_is_authenticated")==="true") {
             sessionStorage.clear();
@@ -106,9 +183,9 @@ LOGIN_INTERFACE="""
                         }
 
                         input.style.display="none";
-                        const otp_place=document.getElementById("otp_input");
-                        otp_place.style.display="inline-block";
-                        otp_place.focus();
+                        const otp_place=document.getElementById("otp_container");
+                        otp_place.style.display="flex";
+                        otpBoxes[0].focus();
                     }
                     else {
                         document.getElementById("error_msg").innerText = data.message || "Failed";
@@ -123,46 +200,43 @@ LOGIN_INTERFACE="""
             }
         });
 
-        document.getElementById("otp_input").addEventListener("keydown", function(event) {
-            if (event.key==="Enter") {
-                otp_typed=document.getElementById("otp_input");
-                otp_received=otp_typed.value.trim();
-                if (!otp_received) return;
+        
+        function verifyOTP(code) {
+            
+            otpBoxes.forEach(b => b.disabled = true);
+            document.getElementById("error_msg").innerText = "";
 
-                otp_typed.disabled=true;
-
-                document.getElementById("error_msg").innerText = "";
-
-                fetch("/auth/verify-otp", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ email: saved_email, code: otp_received })
-                })
-
-                .then(response => response.json())
-                .then(data => {
+            fetch("/auth/verify-otp", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email: saved_email, code: code })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === "success") {
+                    sessionStorage.setItem("user_is_authenticated", "true");
+                    sessionStorage.setItem("login_time", Date.now());
+                    window.location.href = "/homepage";
+                } else {
                     
-                    if (data.status=="success") {
-                        sessionStorage.setItem("user_is_authenticated", "true");
-                        sessionStorage.setItem("login_time", Date.now());
-                        window.location.href="/homepage";
-                    }
-                    else {
-                        otp_typed.disabled=false;
-                        document.getElementById("error_msg").innerText = data.message || "Invalid";
-                    }
+                    otpBoxes.forEach(b => { 
+                        b.disabled = false; 
+                        b.value = ''; 
+                    });
+                    otpBoxes[0].focus();
+                    document.getElementById("error_msg").innerText = data.message || "Invalid code";
+                }
+            })
+            .catch(() => {
+                otpBoxes.forEach(b => b.disabled = false);
+                document.getElementById("error_msg").innerText = "Verification Error";
+            });
+        }
 
-                    
-                })
+    
 
-
-                .catch(() => {
-                    otp_typed.disabled=false;
-                    document.getElementById("error_msg").innerText = "Verification Error";
-                });
-            }
-
-        });
+        
+        
     </script>
 </body>
 </html>
@@ -611,5 +685,5 @@ def template_download():
 if __name__=="__main__":
     init_db()
     print("\n🌍 Unified System Core Operational. Hosting local link: http://127.0.0.1:5000\n")
-    website.run(debug=True, port=5000)
+    website.run(debug=True, use_reloader=False, port=5000)
 
